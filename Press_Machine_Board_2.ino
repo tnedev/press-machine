@@ -61,28 +61,13 @@ boolean in_Razmotalka_NozhStop = false;
 boolean in_Razmotalka_MotorVkl = false;
 boolean in_Razmotalka_MotorAvaria = false;
 
-boolean out_Razmotalka_GlavenMotor = false;
-boolean out_Razmotalka_MotorVisSkorost = false;
-boolean out_Razmotalka_MotorNisSkorost = false;
-boolean out_Razmotalka_NozhicaOtiva = false;
-boolean out_Razmotalka_NozhicaVrashta = false;
-boolean out_Razmotalka_StartNozhicaDisk = false;
-boolean out_Razmotalka_Vakum = false;
-
 boolean in_Nozhica_List = false;
 boolean in_Nozhica_GornoPolozh = false;
 boolean in_Nozhica_DolnoPolozh = false;
 
-boolean out_Nozhica_MasaGore = false;
-boolean out_Nozhica_Nozhici1Napred = false;
-boolean out_Nozhica_Nozhici2Napred = false;
-boolean out_Nozhica_Nozhici1Nazad = false;
-boolean out_Nozhica_Nozhici2Nazad = false;
-boolean out_Nozhica_Motori1Disk = false;
-boolean out_Nozhica_Motori2Disk = false;
-
 void setup()
 {
+	Serial.begin(9600);
 
   // Arduino pinmodes set up
 	pinMode(inPin_Razmotalka_DatFolio,INPUT);
@@ -116,7 +101,35 @@ void setup()
 	pinMode(outPin_Nozhica_Motori2Disk,OUTPUT);
 
 }
+void ReadSensors()
+/*
+	This function reads all the sensors the funcions on this board. 
+	Used as a convinient way to read and store all values instead of 
+	reading the sensors only in one function
+*/
+{
+	in_Razmotalka_DatFolio = digitalRead(inPin_Razmotalka_DatFolio);
+	in_Razmotalka_SenzorFolio  = digitalRead(inPin_Razmotalka_SenzorFolio);
+	in_Razmotalka_DatAkumFolio  = digitalRead(inPin_Razmotalka_DatAkumFolio);
+	in_Razmotalka_DatIzkonsumiranAkum  = digitalRead(inPin_Razmotalka_DatIzkonsumiranAkum);
+	in_Razmotalka_DatKraiFolio  = digitalRead(inPin_Razmotalka_DatKraiFolio);
+	in_Razmotalka_NozhStart  = digitalRead(inPin_Razmotalka_NozhStart);
+	in_Razmotalka_NozhStop  = digitalRead(inPin_Razmotalka_NozhStop);
+	in_Razmotalka_MotorVkl  = digitalRead(inPin_Razmotalka_MotorVkl);
+	in_Razmotalka_MotorAvaria  = digitalRead(inPin_Razmotalka_MotorAvaria);
 
+	in_Nozhica_List  = digitalRead(inPin_Nozhica_List);
+	in_Nozhica_GornoPolozh  = digitalRead(inPin_Nozhica_GornoPolozh);
+	in_Nozhica_DolnoPolozh  = digitalRead(inPin_Nozhica_DolnoPolozh);
+
+}
+void ReadEmergency()
+/*
+	This function will block the operation of the production line while
+	an emergency sensors is activated. The program reads all emergency sensors.
+*/
+{
+}
 void loop()
 {
 
