@@ -16,36 +16,52 @@
 */
 
 
-byte inPin_Presa_KraenIzklGoren = 2;
-byte inPin_Presa_KraenIzklDolen = 3;
-byte inPin_Presa_AvariaGlavenMotor = 4;
+byte inPin_Presa_KraenIzklGoren = 23;
+byte inPin_Presa_KraenIzklDolen = 25;
+byte inPin_Presa_AvariaGlavenMotor = 22;
 
-byte outPin_Presa_Nagore = 5;
-byte outPin_Presa_Nadolu = 6;
-byte outPin_Presa_Vakum = 7;
-byte outPin_Presa_Vazduh = 8;
-
-
-byte inPin_Konteiner_KrainIzklDolen = 26;
-byte inPin_Konteiner_Nivo = 27;
-byte inPin_Konteiner_MotorAvaria = 28;
-
-byte outPin_Konteiner_CilindarGore = 29;
-byte outPin_Konteiner_CilindarDolu = 30;
+byte outPin_Presa_Nagore = 26;
+byte outPin_Presa_Nadolu = 28;
+byte outPin_Presa_Vakum = 30;
+byte outPin_Presa_Vazduh = 32;
 
 
-byte inPin_VhMan_KraenIzklNach = 14;
-byte inPin_VhMan_KraenIzkKrai = 15;
-byte inPin_VhMan_Reper = 16;
-byte inPin_VhMan_GornoPolozhenie = 17;
-byte inPin_VhMan_DolnoPolozhenie = 20;
+byte inPin_Konteiner_KrainIzklDolen = 27;
+byte inPin_Konteiner_Nivo = 34;
+byte inPin_Konteiner_MotorAvaria = 36;
 
-byte outPin_VhManipulator_Gore = 21;
-byte outPin_VhManipulator_Dolu = 22;
-byte outPin_VhManipulator_Vakum = 23;
-byte outPin_VhManipulator_Vazduh = 24;
-byte outPin_VhManipulator_PosokaMotor = 25;
-byte outPin_VhManipulator_PulsMotor = 45;
+byte outPin_Konteiner_CilindarGore = 38;
+byte outPin_Konteiner_CilindarDolu = 40;
+
+
+byte inPin_VhMan_KraenIzklNach = 29;
+byte inPin_VhMan_KraenIzkKrai = 31;
+byte inPin_VhMan_ReperNach = 42;
+byte inPin_VhMan_ReperKrai = 44;
+byte inPin_VhMan_GornoPolozhenie = 46;
+byte inPin_VhMan_DolnoPolozhenie = 48;
+
+byte outPin_VhManipulator_Gore = 50;
+byte outPin_VhManipulator_Dolu = 52;
+byte outPin_VhManipulator_Vakum = 37;
+byte outPin_VhManipulator_Vazduh = 39;
+byte outPin_VhManipulator_PosokaMotor = 41;
+byte outPin_VhManipulator_PulsMotor = 43;
+
+byte inPin_Nozhica_GornoPolozh = 33;
+byte inPin_Nozhica_DolnoPolozh = 35;
+byte inPin_Nozhica_Ready1_1 = 45;
+byte inPin_Nozhica_Ready1_2 = 47;
+byte inPin_Nozhica_Ready2_1 = 49;
+byte inPin_Nozhica_Ready2_2 = 51;
+byte inPin_Nozhica_Ready2_2 = 53;
+
+byte outPin_Nozhica_MasaGore = 53;
+byte outPin_Nozhica_Nozhici1 = 9;
+byte outPin_Nozhica_Nozhici2 = 10;
+byte outPin_Nozhica_Butalo1 = 11;
+byte outPin_Nozhica_Butalo2 = 12;
+byte outPin_Nozhica_EnableNozh = 13;
 
 
 
@@ -76,9 +92,13 @@ boolean in_Konteiner_MotorAvaria = false;
 
 boolean in_VhMan_KraenIzklNach = false;
 boolean in_VhMan_KraenIzklKrai = false;
-boolean in_VhMan_Reper = false;
+boolean in_VhMan_ReperNach = false;
+boolean in_VhMan_ReperKrai = false;
 boolean in_VhMan_GornoPolozhenie = false;
 boolean in_VhMan_DolnoPolozhenie = false;
+
+boolean in_Nozhica_GornoPolozh = false;
+boolean in_Nozhica_DolnoPolozh = false;
 
 
 
@@ -107,7 +127,8 @@ void setup()
 
 	pinMode(inPin_VhMan_KraenIzklNach,INPUT);
 	pinMode(inPin_VhMan_KraenIzkKrai,INPUT);
-	pinMode(inPin_VhMan_Reper,INPUT);
+	pinMode(inPin_VhMan_ReperNach,INPUT);
+	pinMode(inPin_VhMan_ReperKrai,INPUT);
 	pinMode(inPin_VhMan_GornoPolozhenie,INPUT);
 	pinMode(inPin_VhMan_DolnoPolozhenie,INPUT);
 
@@ -118,6 +139,20 @@ void setup()
 	pinMode(outPin_VhManipulator_PosokaMotor,OUTPUT);
 	pinMode(outPin_VhManipulator_PulsMotor,OUTPUT);
 
+	pinMode(inPin_Nozhica_GornoPolozh,INPUT);
+	pinMode(inPin_Nozhica_DolnoPolozh,INPUT);
+	pinMode(inPin_Nozhica_Ready1_1,INPUT);
+	pinMode(inPin_Nozhica_Ready1_2,INPUT);
+	pinMode(inPin_Nozhica_Ready2_1,INPUT);
+	pinMode(inPin_Nozhica_Ready2_2,INPUT);
+	pinMode(inPin_Nozhica_Ready2_2,INPUT);
+
+	pinMode(outPin_Nozhica_MasaGore,OUTPUT);
+	pinMode(outPin_Nozhica_Nozhici1,OUTPUT);
+	pinMode(outPin_Nozhica_Nozhici2,OUTPUT);
+	pinMode(outPin_Nozhica_Butalo1,OUTPUT);
+	pinMode(outPin_Nozhica_Butalo2,OUTPUT);
+	pinMode(outPin_Nozhica_EnableNozh,OUTPUT);
 
 }
 
@@ -139,11 +174,19 @@ void ReadSensors()
 	in_Konteiner_MotorAvaria = digitalRead(inPin_Konteiner_MotorAvaria);
 	
 	in_VhMan_KraenIzklNach = digitalRead(inPin_VhMan_KraenIzklNach);
-	in_VhMan_KraenIzklKrai = (inPin_VhMan_KraenIzkKrai);
-	in_VhMan_Reper = digitalRead(inPin_VhMan_Reper);
+	in_VhMan_KraenIzkKrai = digitalRead(inPin_VhMan_KraenIzkKrai);
+	in_VhMan_ReperNach = digitalRead(inPin_VhMan_ReperNach);
+	in_VhMan_ReperKrai = digitalRead(inPin_VhMan_ReperKrai);
 	in_VhMan_GornoPolozhenie = digitalRead(inPin_VhMan_GornoPolozhenie);
 	in_VhMan_DolnoPolozhenie = digitalRead(inPin_VhMan_DolnoPolozhenie);
-
+	
+	in_Nozhica_GornoPolozh = digitalRead(inPin_Nozhica_GornoPolozh);
+	inP_Nozhica_DolnoPolozh = digitalRead(inPin_Nozhica_DolnoPolozh);
+	in_Nozhica_Ready1_1 = digitalRead(inPin_Nozhica_Ready1_1);
+	in_Nozhica_Ready1_2 = digitalRead(inPin_Nozhica_Ready1_2);
+	in_Nozhica_Ready2_1 = digitalRead(inPin_Nozhica_Ready2_1);
+	in_Nozhica_Ready2_2 = digitalRead(inPin_Nozhica_Ready2_2);
+	in_Nozhica_Ready2_2 = digitalRead(inPin_Nozhica_Ready2_2);
 
 }
 
@@ -204,15 +247,7 @@ void Konteiner()
 */
 {
 
-	if(in_Konteiner_MotorAvaria==LOW) // Is there an emergency in the container
-	{ 
-		
-	}
-	else
-	{
-		Serial.write("Emergency stop at the the container");
-		emergency = HIGH;
-	}
+
 
 }
 
