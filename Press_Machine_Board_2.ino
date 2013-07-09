@@ -16,9 +16,27 @@
 	The values links the pin number with the name
 */
 
+#include <EasyTransfer.h>
+
+//create object
+EasyTransfer ET; 
+
+struct SEND_DATA_STRUCTURE{
+  //put your variable definitions here for the data you want to send
+  //THIS MUST BE EXACTLY THE SAME ON THE OTHER ARDUINO
+  
+boolean in_IzhMan_KraenIzklNach;
+boolean in_IzhMan_KraenIzklKrai;
+boolean in_IzhMan_ReperNach;
+boolean in_IzhMan_ReperKrai;
+
+  
+};
+SEND_DATA_STRUCTURE mydata;
+
 
 byte inPin_IzhMan_KraenIzklNach = 33;
-byte inPin_IzhMan_KraenIzkKrai = 35;
+byte inPin_IzhMan_KraenIzklKrai = 35;
 byte inPin_IzhMan_ReperNach = 22;
 byte inPin_IzhMan_ReperKrai = 24;
 byte inPin_IzhMan_GornoPolozhenie = 26;
@@ -53,7 +71,16 @@ byte outPin_Razmotalka_EnableSevo = 10;
 byte outPin_Razmotalka_EnableNozh_Disc = 11;
 byte outPin_Razmotalka_Vakum = 12;
 
+/*
+	Arduino main variables declaration
 
+*/
+
+
+boolean material_podaden = false, presa_udarila = false, material_vzet = true; // values to link the logic of operation of the press and both manipulators
+int man_speed_high = 2000; // The  high setting of the speed of the input manipulator [Hz of impulse]
+int man_speed_low = 200; // The low setting of the speed of the input manipulator [Hz of impulse]
+int current_speed=0; // sets the current speed of the manipulator
 
 /*
 	Arduino variables declaration
@@ -82,12 +109,13 @@ boolean in_Razmotalka_ReadyDisk = false;
 void setup()
 {
 	Serial.begin(9600);
+	 ET.begin(details(mydata), &Serial3);
 
   // Arduino pinmodes set up
   
 
 	pinMode(inPin_IzhMan_KraenIzklNach,INPUT);
-	pinMode(inPin_IzhMan_KraenIzkKrai,INPUT);
+	pinMode(inPin_IzhMan_KraenIzklKrai,INPUT);
 	pinMode(inPin_IzhMan_ReperNach,INPUT);
 	pinMode(inPin_IzhMan_ReperKrai,INPUT);
 	pinMode(inPin_IzhMan_GornoPolozhenie,INPUT);
@@ -133,7 +161,7 @@ void ReadSensors()
 */
 {
 	in_IzhMan_KraenIzklNach = digitalRead(inPin_IzhMan_KraenIzklNach);
-	in_IzhMan_KraenIzkKrai = digitalRead(inPin_IzhMan_KraenIzkKrai);
+	in_IzhMan_KraenIzklKrai = digitalRead(inPin_IzhMan_KraenIzklKrai);
 	in_IzhMan_ReperNach = digitalRead(inPin_IzhMan_ReperNach);
 	in_IzhMan_ReperKrai = digitalRead(inPin_IzhMan_ReperKrai);
 	in_IzhMan_GornoPolozhenie = digitalRead(inPin_IzhMan_GornoPolozhenie);
@@ -150,8 +178,66 @@ void ReadSensors()
 	in_Razmotalka_ReadyNozh = digitalRead(inPin_Razmotalka_ReadyNozh);
 	in_Razmotalka_ReadyDisk = digitalRead(inPin_Razmotalka_ReadyDisk);
 
+	mydata.in_IzhMan_KraenIzklNach = in_IzhMan_KraenIzklNach;
+	mydata.in_IzhMan_KraenIzklKrai = in_IzhMan_KraenIzklKrai;
+	mydata.in_IzhMan_ReperNach = in_IzhMan_ReperNach;
+	mydata.in_IzhMan_ReperKrai = in_IzhMan_ReperKrai;
+	
+	ET.sendData();
 
 
+}
+
+void IzhManipulator()
+/*
+	This function operates the input manipulator of the system
+*/
+{
+	
+	boolean man_dir = false; // Direction of the manipulator
+	
+	if( (in_IzhMan_KraenIzklNach && in_IzhMan_ReperNach && current_speed == 0) ||(in_IzhMan_KraenIzklKrai && in_IzhMan_ReperKrai && current_speed==0))
+	{	// When the end switch and reper sensor are HIGH and the speed of the motor is 0, this calls for acceleration of the motor
+		man_dir = ~ man_dir; // change direction
+		digitalWrite(outPin_IzhManipulator_PosokaMotor, man_dir);
+		Acc_Motor();
+	}
+	
+	if((in_IzhMan_KraenIzklNach || in_IzhMan_KraenIzklKrai) && current_speed>man_speed_low )
+	// When an end switch is HIGH and the speed is HIGH, decelerate the motor
+	{
+		Dec_Motor();
+	}
+	if(in_IzhMan_ReperNach || in_IzhMan_ReperKrai)
+	{
+		noTone(outPin_IzhManipulator_PulsMotor);
+		current_speed=0;
+		delay(3000); // This is where work will happen - to delete
+	}
+}
+
+void Acc_Motor()
+// Accelerate the motor
+{
+	int speed_steps = man_speed_high/500;
+	for(int i=0; i>=man_speed_high;i=i+speed_steps)
+	{
+		tone(outPin_IzhManipulator_PulsMotor, i);
+		delay(1);
+	}
+	current_speed = man_speed_high;
+}
+
+void Dec_Motor()
+// Decelerate the motor
+{
+	int speed_steps = man_speed_high/500;
+	for(int i=man_speed_high; i<=man_speed_low;i=i-speed_steps)
+	{
+		tone(outPin_IzhManipulator_PulsMotor, i);
+		delay(1);
+	}
+	current_speed = man_speed_low;
 }
 void ReadEmergency()
 /*
@@ -163,6 +249,6 @@ void ReadEmergency()
 void loop()
 {
 
-  /* add main program code here */
+  ReadSensors();
 
 }

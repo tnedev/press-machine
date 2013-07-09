@@ -15,6 +15,23 @@
 	The values links the pin number with the name
 */
 
+#include <EasyTransfer.h>
+#include <Servo.h> 
+
+//create object
+EasyTransfer ET; 
+
+
+struct RECEIVE_DATA_STRUCTURE{
+
+	boolean in_IzhMan_KraenIzklNach;
+	boolean in_IzhMan_KraenIzklKrai;
+	boolean in_IzhMan_ReperNach;
+	boolean in_IzhMan_ReperKrai;
+};
+
+//give a name to the group of data
+RECEIVE_DATA_STRUCTURE mydata;
 
 byte inPin_Presa_KraenIzklGoren = 23;
 byte inPin_Presa_KraenIzklDolen = 25;
@@ -35,7 +52,7 @@ byte outPin_Konteiner_CilindarDolu = 40;
 
 
 byte inPin_VhMan_KraenIzklNach = 29;
-byte inPin_VhMan_KraenIzkKrai = 31;
+byte inPin_VhMan_KraenIzklKrai = 31;
 byte inPin_VhMan_ReperNach = 42;
 byte inPin_VhMan_ReperKrai = 44;
 byte inPin_VhMan_GornoPolozhenie = 46;
@@ -54,7 +71,6 @@ byte inPin_Nozhica_Ready1_1 = 45;
 byte inPin_Nozhica_Ready1_2 = 47;
 byte inPin_Nozhica_Ready2_1 = 49;
 byte inPin_Nozhica_Ready2_2 = 51;
-byte inPin_Nozhica_Ready2_2 = 53;
 
 byte outPin_Nozhica_MasaGore = 53;
 byte outPin_Nozhica_Nozhici1 = 9;
@@ -73,6 +89,12 @@ byte outPin_Nozhica_EnableNozh = 13;
 boolean emergency = false; // Used to stop the system if there is an emegency
 int pressureThreshold = 0; // Set the pressure threshold for the press. How much the press has to press. 
 boolean presa_nagore = false, presa_nadolu = false; // Sets the direction of the press
+
+boolean material_podaden = false, presa_udarila = false, material_vzet = true; // values to link the logic of operation of the press and both manipulators
+int man_speed_high = 2000; // The  high setting of the speed of the input manipulator [Hz of impulse]
+int man_speed_low = 200; // The low setting of the speed of the input manipulator [Hz of impulse]
+int current_speed=0; // sets the current speed of the manipulator
+boolean initial=false; // is the machine initialized
 
 
 
@@ -99,6 +121,10 @@ boolean in_VhMan_DolnoPolozhenie = false;
 
 boolean in_Nozhica_GornoPolozh = false;
 boolean in_Nozhica_DolnoPolozh = false;
+boolean in_Nozhica_Ready1_1 = false;
+boolean in_Nozhica_Ready1_2 = false;
+boolean in_Nozhica_Ready2_1 = false;
+boolean in_Nozhica_Ready2_2 = false;
 
 
 
@@ -106,6 +132,7 @@ void setup()
 {
 
 	Serial.begin(9600);
+	 ET.begin(details(mydata), &Serial3); // start the serial communication between the boards
   // Arduino pinmodes set up
 	pinMode(A0,INPUT); // Pressure sensor
 	pinMode(inPin_Presa_KraenIzklGoren,INPUT);
@@ -126,7 +153,7 @@ void setup()
 
 
 	pinMode(inPin_VhMan_KraenIzklNach,INPUT);
-	pinMode(inPin_VhMan_KraenIzkKrai,INPUT);
+	pinMode(inPin_VhMan_KraenIzklKrai,INPUT);
 	pinMode(inPin_VhMan_ReperNach,INPUT);
 	pinMode(inPin_VhMan_ReperKrai,INPUT);
 	pinMode(inPin_VhMan_GornoPolozhenie,INPUT);
@@ -174,19 +201,27 @@ void ReadSensors()
 	in_Konteiner_MotorAvaria = digitalRead(inPin_Konteiner_MotorAvaria);
 	
 	in_VhMan_KraenIzklNach = digitalRead(inPin_VhMan_KraenIzklNach);
-	in_VhMan_KraenIzkKrai = digitalRead(inPin_VhMan_KraenIzkKrai);
+	in_VhMan_KraenIzklKrai = digitalRead(inPin_VhMan_KraenIzklKrai);
 	in_VhMan_ReperNach = digitalRead(inPin_VhMan_ReperNach);
 	in_VhMan_ReperKrai = digitalRead(inPin_VhMan_ReperKrai);
 	in_VhMan_GornoPolozhenie = digitalRead(inPin_VhMan_GornoPolozhenie);
 	in_VhMan_DolnoPolozhenie = digitalRead(inPin_VhMan_DolnoPolozhenie);
 	
 	in_Nozhica_GornoPolozh = digitalRead(inPin_Nozhica_GornoPolozh);
-	inP_Nozhica_DolnoPolozh = digitalRead(inPin_Nozhica_DolnoPolozh);
+	in_Nozhica_DolnoPolozh = digitalRead(inPin_Nozhica_DolnoPolozh);
 	in_Nozhica_Ready1_1 = digitalRead(inPin_Nozhica_Ready1_1);
 	in_Nozhica_Ready1_2 = digitalRead(inPin_Nozhica_Ready1_2);
 	in_Nozhica_Ready2_1 = digitalRead(inPin_Nozhica_Ready2_1);
 	in_Nozhica_Ready2_2 = digitalRead(inPin_Nozhica_Ready2_2);
 	in_Nozhica_Ready2_2 = digitalRead(inPin_Nozhica_Ready2_2);
+	
+	if(ET.receiveData()){
+		boolean in_IzhMan_KraenIzklNach = mydata.in_IzhMan_KraenIzklNach;
+		boolean in_IzhMan_KraenIzklKrai = mydata.in_IzhMan_KraenIzklKrai;
+		boolean in_IzhMan_ReperNach = mydata.in_IzhMan_ReperNach;
+		boolean in_IzhMan_ReperKrai = mydata.in_IzhMan_ReperKrai;
+	 
+	}
 
 }
 
@@ -241,6 +276,58 @@ void Press()
 
 }
 
+void VhManipulator()
+/*
+	This function operates the input manipulator of the system
+*/
+{
+	
+	boolean man_dir = false; // Direction of the manipulator
+	
+	if( (in_VhMan_KraenIzklNach && in_VhMan_ReperNach && current_speed == 0) ||(in_VhMan_KraenIzklKrai && in_VhMan_ReperKrai && current_speed==0))
+	{	// When the end switch and reper sensor are HIGH and the speed of the motor is 0, this calls for acceleration of the motor
+		man_dir = ~ man_dir; // change direction
+		digitalWrite(outPin_VhManipulator_PosokaMotor, man_dir);
+		Acc_Motor();
+	}
+	
+	if((in_VhMan_KraenIzklNach || in_VhMan_KraenIzklKrai) && current_speed>man_speed_low )
+	// When an end switch is HIGH and the speed is HIGH, decelerate the motor
+	{
+		Dec_Motor();
+	}
+	if(in_VhMan_ReperNach || in_VhMan_ReperKrai)
+	{
+		noTone(outPin_VhManipulator_PulsMotor);
+		current_speed=0;
+		delay(3000); // This is where work will happen - to delete
+	}
+}
+
+void Acc_Motor()
+// Accelerate the motor
+{
+	int speed_steps = man_speed_high/500;
+	for(int i=0; i>=man_speed_high;i=i+speed_steps)
+	{
+		tone(outPin_VhManipulator_PulsMotor, i);
+		delay(1);
+	}
+	current_speed = man_speed_high;
+}
+
+void Dec_Motor()
+// Decelerate the motor
+{
+	int speed_steps = man_speed_high/500;
+	for(int i=man_speed_high; i<=man_speed_low;i=i-speed_steps)
+	{
+		tone(outPin_VhManipulator_PulsMotor, i);
+		delay(1);
+	}
+	current_speed = man_speed_low;
+}
+
 void Konteiner()
 /*
 	This function operates the press module on the production line
@@ -268,13 +355,44 @@ void ReadEmergency()
 	}
 }
 
+void Initialize()
+/*
+	This function initialized the machine
+*/
+{
+	
+	digitalWrite(outPin_VhManipulator_PosokaMotor,HIGH);
+	tone(outPin_VhManipulator_PulsMotor, 500);
+	while(in_VhMan_ReperNach == false || in_VhMan_ReperKrai == false)
+	{
+		ReadSensors();
+	}
+	noTone(outPin_VhManipulator_PulsMotor);
+	initial=true;
+}
+
 void loop()
 {
 	if(emergency==LOW) // Operate the production line if there is no emergency
 	{ // Main loop function for normal operation
 	
+		if(initial=false)
+		{
+			Initialize();
+		}
 		ReadSensors();
-		Press();
+		if(in_Presa_KraenIzklGoren) // if the press is up
+		{
+			VhManipulator();
+		}
+		else
+		{
+			noTone(outPin_VhManipulator_PulsMotor);
+		}
+
+		if(in_VhMan_KraenIzklNach && in_VhMan_ReperNach)
+		{
+		}
 		
 	}
 	

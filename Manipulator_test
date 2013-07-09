@@ -1,1 +1,82 @@
-// Test manipulator
+//  Delta test
+
+byte dir = 38 ;// Pin Dir
+byte mpulse = 40 ;// pin PWM
+boolean dirs=false;
+
+
+void setup() {
+
+pinMode(dir, OUTPUT);
+pinMode(mpulse, OUTPUT);
+Serial.begin(9600);
+
+digitalWrite(33, HIGH);
+digitalWrite(35, HIGH);
+
+
+digitalWrite(24, HIGH);
+
+digitalWrite(22, HIGH);
+digitalWrite(dir, LOW);
+
+
+
+
+}
+
+void loop() {
+ 
+
+               
+              
+
+              if(digitalRead(22) && dirs == false)
+              {
+                noTone(mpulse);
+                delay(1000);
+                digitalWrite(dir, HIGH);
+                dirs = true;
+              }
+              if(digitalRead(24) && dirs == true)
+              {
+                noTone(mpulse);
+                delay(1000);
+                digitalWrite(dir, LOW);
+                dirs = false;
+              }
+ 
+      	      tone(mpulse, 500);
+              
+              if(digitalRead(33)==HIGH || digitalRead(35) == HIGH)
+              {
+                noTone(mpulse);
+                  while(1)
+                  {
+                     Serial.print(digitalRead(33));
+                    Serial.print(digitalRead(35));
+                    Serial.print(digitalRead(22));
+                    Serial.print(digitalRead(24));
+                    Serial.println();
+
+                  }
+              }
+               
+             
+                
+		
+
+
+		//digitalWrite(dir, LOW);
+		//tone(mpulse, 1000, 1000);
+
+		//delay(5000);
+	
+ 
+  
+  Serial.print(digitalRead(33));
+  Serial.print(digitalRead(35));
+  Serial.print(digitalRead(22));
+  Serial.print(digitalRead(24));
+  Serial.println();
+}
