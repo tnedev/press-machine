@@ -1,4 +1,3 @@
-
 /*
 	This is control program for production line with press machine using Arduino Mega R3
 	Last Updata Jul 2013
@@ -16,29 +15,14 @@
 	The values links the pin number with the name
 */
 
-#include <EasyTransfer.h>
-
-//create object
-EasyTransfer ET; 
-
-struct SEND_DATA_STRUCTURE{
-  //put your variable definitions here for the data you want to send
-  //THIS MUST BE EXACTLY THE SAME ON THE OTHER ARDUINO
-  
-boolean in_IzhMan_KraenIzklNach;
-boolean in_IzhMan_KraenIzklKrai;
-boolean in_IzhMan_ReperNach;
-boolean in_IzhMan_ReperKrai;
-
-  
-};
-SEND_DATA_STRUCTURE mydata;
 
 
-byte inPin_IzhMan_KraenIzklNach = 33;
-byte inPin_IzhMan_KraenIzklKrai = 35;
-byte inPin_IzhMan_ReperNach = 22;
-byte inPin_IzhMan_ReperKrai = 24;
+
+
+byte inPin_IzhMan_KraenIzklNach = 24;
+byte inPin_IzhMan_KraenIzklKrai = 22;
+byte inPin_IzhMan_ReperNach = 35;
+byte inPin_IzhMan_ReperKrai = 33;
 byte inPin_IzhMan_GornoPolozhenie = 26;
 byte inPin_IzhMan_DolnoPolozhenie = 29;
 
@@ -78,9 +62,11 @@ byte outPin_Razmotalka_Vakum = 12;
 
 
 boolean material_podaden = false, presa_udarila = false, material_vzet = true; // values to link the logic of operation of the press and both manipulators
-int man_speed_high = 2000; // The  high setting of the speed of the input manipulator [Hz of impulse]
-int man_speed_low = 200; // The low setting of the speed of the input manipulator [Hz of impulse]
+int man_speed_high = 4000; // The  high setting of the speed of the input manipulator [Hz of impulse]
+int man_speed_low = 100; // The low setting of the speed of the input manipulator [Hz of impulse]
 int current_speed=0; // sets the current speed of the manipulator
+boolean initial = false; // is the program initialized
+boolean man_dir ; // Direction of the manipulator
 
 /*
 	Arduino variables declaration
@@ -104,12 +90,17 @@ boolean in_Razmotalka_ReadyServo = false;
 boolean in_Razmotalka_ReadyNozh = false;
 boolean in_Razmotalka_ReadyDisk = false;
 
+boolean in_VhMan_KraenIzklNach;
+boolean in_VhMan_KraenIzklKrai;
+boolean in_VhMan_ReperNach;
+boolean in_VhMan_ReperKrai;
+
 
 
 void setup()
 {
 	Serial.begin(9600);
-	 ET.begin(details(mydata), &Serial3);
+
 
   // Arduino pinmodes set up
   
@@ -151,6 +142,11 @@ void setup()
 	pinMode(outPin_Razmotalka_Vakum,OUTPUT);
 
 
+	digitalWrite (inPin_IzhMan_KraenIzklNach, HIGH);
+	digitalWrite (inPin_IzhMan_KraenIzklKrai, HIGH);
+	digitalWrite (inPin_IzhMan_ReperNach, HIGH);
+	digitalWrite (inPin_IzhMan_ReperKrai, HIGH);
+
 
 }
 void ReadSensors()
@@ -177,14 +173,7 @@ void ReadSensors()
 	in_Razmotalka_ReadyServo = digitalRead(inPin_Razmotalka_ReadyServo);
 	in_Razmotalka_ReadyNozh = digitalRead(inPin_Razmotalka_ReadyNozh);
 	in_Razmotalka_ReadyDisk = digitalRead(inPin_Razmotalka_ReadyDisk);
-
-	mydata.in_IzhMan_KraenIzklNach = in_IzhMan_KraenIzklNach;
-	mydata.in_IzhMan_KraenIzklKrai = in_IzhMan_KraenIzklKrai;
-	mydata.in_IzhMan_ReperNach = in_IzhMan_ReperNach;
-	mydata.in_IzhMan_ReperKrai = in_IzhMan_ReperKrai;
 	
-	ET.sendData();
-
 
 }
 
@@ -194,50 +183,84 @@ void IzhManipulator()
 */
 {
 	
-	boolean man_dir = false; // Direction of the manipulator
 	
-	if( (in_IzhMan_KraenIzklNach && in_IzhMan_ReperNach && current_speed == 0) ||(in_IzhMan_KraenIzklKrai && in_IzhMan_ReperKrai && current_speed==0))
+	
+	if( ( in_IzhMan_ReperNach && current_speed == 0) ||(in_IzhMan_ReperKrai && current_speed == 0))
 	{	// When the end switch and reper sensor are HIGH and the speed of the motor is 0, this calls for acceleration of the motor
-		man_dir = ~ man_dir; // change direction
+		//man_dir = ~ man_dir; // change direction
+
+               if(in_IzhMan_ReperNach==true)
+                {
+                  man_dir=false;
+                }
+                if(in_IzhMan_ReperKrai==true)
+                 {
+                  man_dir=true;
+                }
+      
+            
+                
 		digitalWrite(outPin_IzhManipulator_PosokaMotor, man_dir);
 		Acc_Motor();
+                ReadSensors(); 
 	}
 	
-	if((in_IzhMan_KraenIzklNach || in_IzhMan_KraenIzklKrai) && current_speed>man_speed_low )
+	if((in_IzhMan_KraenIzklNach==true || in_IzhMan_KraenIzklKrai==true) && current_speed==man_speed_high )
 	// When an end switch is HIGH and the speed is HIGH, decelerate the motor
-	{
-		Dec_Motor();
+	{        ReadSensors();
+                  
+	         if(in_IzhMan_KraenIzklKrai==true && man_dir==false)
+                {
+		    Dec_Motor();
+                }
+                if(in_IzhMan_KraenIzklNach==true  && man_dir==true)
+                {
+		    Dec_Motor();
+                }
+                
 	}
-	if(in_IzhMan_ReperNach || in_IzhMan_ReperKrai)
+	if((in_IzhMan_ReperNach==true || in_IzhMan_ReperKrai==true))
 	{
 		noTone(outPin_IzhManipulator_PulsMotor);
 		current_speed=0;
-		delay(3000); // This is where work will happen - to delete
+                Serial.println("Speed is 0");
+		delay(1000); // This is where work will happen - to delete
+                ReadSensors();
 	}
+
 }
 
 void Acc_Motor()
 // Accelerate the motor
 {
-	int speed_steps = man_speed_high/500;
-	for(int i=0; i>=man_speed_high;i=i+speed_steps)
+    int counter=0;
+	int speed_steps = man_speed_high/400;
+	for(int i=0; i<man_speed_high;i=i+speed_steps)
 	{
 		tone(outPin_IzhManipulator_PulsMotor, i);
 		delay(1);
+                counter++;
 	}
+        Serial.println("Accelerate");
+        Serial.println(counter);
 	current_speed = man_speed_high;
 }
 
 void Dec_Motor()
 // Decelerate the motor
 {
-	int speed_steps = man_speed_high/500;
-	for(int i=man_speed_high; i<=man_speed_low;i=i-speed_steps)
+  int counter=0;
+  int i;
+	int speed_steps = man_speed_high/300;
+	for(i=man_speed_high; i>man_speed_low; (i=i-speed_steps))
 	{
 		tone(outPin_IzhManipulator_PulsMotor, i);
+                counter++;
 		delay(1);
 	}
 	current_speed = man_speed_low;
+        Serial.println(counter);
+        Serial.println("Decelerate");
 }
 void ReadEmergency()
 /*
@@ -246,9 +269,47 @@ void ReadEmergency()
 */
 {
 }
+
+void Initialize()
+/*
+	This function initialized the machine
+*/
+{
+	
+	digitalWrite(outPin_IzhManipulator_PosokaMotor,LOW);
+	tone(outPin_IzhManipulator_PulsMotor, 500);
+	while(in_IzhMan_ReperNach == false && in_IzhMan_ReperKrai == false)
+	{
+		ReadSensors();
+	}
+	noTone(outPin_IzhManipulator_PulsMotor);
+	initial=true;
+}
 void loop()
+
 {
 
   ReadSensors();
+  Serial.print(in_IzhMan_ReperNach);
+  Serial.print(in_IzhMan_KraenIzklNach);
+  Serial.print(in_IzhMan_KraenIzklKrai);
+  Serial.print(in_IzhMan_ReperKrai);
+  
+  Serial.print(in_VhMan_ReperNach);
+  Serial.print(in_VhMan_KraenIzklNach);
+  Serial.print(in_VhMan_KraenIzklKrai);
+  Serial.print(in_VhMan_ReperKrai);
+  Serial.println();
+
+
+
+/*	if(initial==false)
+		{
+			Initialize();
+                        Serial.println("Initialized");
+		}
+	ReadSensors();
+        IzhManipulator();
+*/
 
 }

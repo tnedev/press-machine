@@ -1,3 +1,4 @@
+
 /*
 	This is control program for production line with press machine using Arduino Mega R3
 	Last Updata Jul 2013
@@ -15,23 +16,8 @@
 	The values links the pin number with the name
 */
 
-#include <EasyTransfer.h>
-#include <Servo.h> 
-
-//create object
-EasyTransfer ET; 
 
 
-struct RECEIVE_DATA_STRUCTURE{
-
-	boolean in_IzhMan_KraenIzklNach;
-	boolean in_IzhMan_KraenIzklKrai;
-	boolean in_IzhMan_ReperNach;
-	boolean in_IzhMan_ReperKrai;
-};
-
-//give a name to the group of data
-RECEIVE_DATA_STRUCTURE mydata;
 
 byte inPin_Presa_KraenIzklGoren = 23;
 byte inPin_Presa_KraenIzklDolen = 25;
@@ -44,9 +30,10 @@ byte outPin_Presa_Vazduh = 32;
 
 
 byte inPin_Konteiner_KrainIzklDolen = 27;
-byte inPin_Konteiner_Nivo = 34;
+byte inPin_Konteiner_Nivo = 13;
 byte inPin_Konteiner_MotorAvaria = 36;
 
+byte outPin_Konteiner_Motor = 13;
 byte outPin_Konteiner_CilindarGore = 38;
 byte outPin_Konteiner_CilindarDolu = 40;
 
@@ -87,15 +74,17 @@ byte outPin_Nozhica_EnableNozh = 13;
 
 */
 boolean emergency = false; // Used to stop the system if there is an emegency
-int pressureThreshold = 0; // Set the pressure threshold for the press. How much the press has to press. 
+int pressureThreshold = 500; // Set the pressure threshold for the press. How much the press has to press. 
 boolean presa_nagore = false, presa_nadolu = false; // Sets the direction of the press
 
 boolean material_podaden = false, presa_udarila = false, material_vzet = true; // values to link the logic of operation of the press and both manipulators
 int man_speed_high = 2000; // The  high setting of the speed of the input manipulator [Hz of impulse]
 int man_speed_low = 200; // The low setting of the speed of the input manipulator [Hz of impulse]
 int current_speed=0; // sets the current speed of the manipulator
-boolean initial=false; // is the machine initialized
+boolean initial = false; // is the program initialized
+boolean man_dir ; // Direction of the manipulator
 
+int presa_count=0;
 
 
 /*
@@ -127,12 +116,11 @@ boolean in_Nozhica_Ready2_1 = false;
 boolean in_Nozhica_Ready2_2 = false;
 
 
-
 void setup()
 {
 
 	Serial.begin(9600);
-	 ET.begin(details(mydata), &Serial3); // start the serial communication between the boards
+
   // Arduino pinmodes set up
 	pinMode(A0,INPUT); // Pressure sensor
 	pinMode(inPin_Presa_KraenIzklGoren,INPUT);
@@ -148,8 +136,9 @@ void setup()
 	pinMode(inPin_Konteiner_Nivo,INPUT);
 	pinMode(inPin_Konteiner_MotorAvaria,INPUT);
 
-	pinMode(outPin_Konteiner_CilindarGore,INPUT);
-	pinMode(outPin_Konteiner_CilindarDolu,INPUT);
+	pinMode(outPin_Konteiner_CilindarGore,OUTPUT);
+	pinMode(outPin_Konteiner_CilindarDolu,OUTPUT);
+	pinMode(outPin_Konteiner_Motor, OUTPUT);
 
 
 	pinMode(inPin_VhMan_KraenIzklNach,INPUT);
@@ -180,6 +169,17 @@ void setup()
 	pinMode(outPin_Nozhica_Butalo1,OUTPUT);
 	pinMode(outPin_Nozhica_Butalo2,OUTPUT);
 	pinMode(outPin_Nozhica_EnableNozh,OUTPUT);
+	
+        digitalWrite(inPin_Presa_KraenIzklGoren, HIGH);
+        digitalWrite(inPin_Presa_KraenIzklDolen, HIGH);
+        digitalWrite(inPin_Presa_AvariaGlavenMotor, HIGH);
+        digitalWrite(inPin_VhMan_KraenIzklNach, HIGH);
+        digitalWrite(inPin_VhMan_KraenIzklKrai, HIGH);
+        digitalWrite(inPin_VhMan_ReperNach, HIGH);
+        digitalWrite(inPin_VhMan_ReperKrai, HIGH);
+        digitalWrite(27, HIGH);
+
+
 
 }
 
@@ -215,13 +215,6 @@ void ReadSensors()
 	in_Nozhica_Ready2_2 = digitalRead(inPin_Nozhica_Ready2_2);
 	in_Nozhica_Ready2_2 = digitalRead(inPin_Nozhica_Ready2_2);
 	
-	if(ET.receiveData()){
-		boolean in_IzhMan_KraenIzklNach = mydata.in_IzhMan_KraenIzklNach;
-		boolean in_IzhMan_KraenIzklKrai = mydata.in_IzhMan_KraenIzklKrai;
-		boolean in_IzhMan_ReperNach = mydata.in_IzhMan_ReperNach;
-		boolean in_IzhMan_ReperKrai = mydata.in_IzhMan_ReperKrai;
-	 
-	}
 
 }
 
@@ -231,15 +224,16 @@ void Press()
 */
 {
 
-	if(in_Presa_AvariaGlavenMotor==LOW) // Is there an emergency in the press
+	//if(in_Presa_AvariaGlavenMotor==LOW) // Is there an emergency in the press
 	{ // Main function of the press
-		if(in_Presa_KraenIzklGoren == false && in_Presa_KraenIzklDolen == true) // If the press is at up position start going down
+		if(in_Presa_KraenIzklGoren == true && in_Presa_KraenIzklDolen == false) // If the press is at up position start going down
 		{
 			presa_nadolu = 1;
 			presa_nagore = 0;
 		}
-		else if(in_Presa_KraenIzklGoren == true && in_Presa_KraenIzklDolen == false && in_Presa_Pressure >= pressureThreshold) // If the press is down start going up
+		else if(in_Presa_KraenIzklGoren == false && (in_Presa_Pressure >= pressureThreshold || in_Presa_KraenIzklDolen==HIGH)) // If the press is down start going up
 		{
+              
                         presa_nagore = 1;
 			presa_nadolu = 0;
 			
@@ -259,6 +253,7 @@ void Press()
 		 else if(presa_nadolu==false && presa_nagore==true) // Start moving the press up
 		{
 			digitalWrite(outPin_Presa_Nadolu, LOW);
+                        delay(500);
 			digitalWrite(outPin_Presa_Nagore, HIGH);
 		}
 		else 
@@ -268,10 +263,10 @@ void Press()
 
 
 	}
-	else
+	//else
 	{
-		Serial.println("Emergency stop at the the press");
-		emergency = HIGH;
+		//Serial.println("Emergency stop at the the press");
+		//emergency = HIGH;
 	}
 
 }
@@ -282,51 +277,87 @@ void VhManipulator()
 */
 {
 	
-	boolean man_dir = false; // Direction of the manipulator
 	
-	if( (in_VhMan_KraenIzklNach && in_VhMan_ReperNach && current_speed == 0) ||(in_VhMan_KraenIzklKrai && in_VhMan_ReperKrai && current_speed==0))
+	
+	if( ( in_VhMan_ReperNach && current_speed == 0) ||(in_VhMan_ReperKrai && current_speed == 0))
 	{	// When the end switch and reper sensor are HIGH and the speed of the motor is 0, this calls for acceleration of the motor
-		man_dir = ~ man_dir; // change direction
+		//man_dir = ~ man_dir; // change direction
+
+               if(in_VhMan_ReperNach==true)
+                {
+                  man_dir=false;
+                }
+                if(in_VhMan_ReperKrai==true)
+                 {
+                  man_dir=true;
+                }
+      
+            
+                
 		digitalWrite(outPin_VhManipulator_PosokaMotor, man_dir);
 		Acc_Motor();
+                ReadSensors(); 
 	}
 	
-	if((in_VhMan_KraenIzklNach || in_VhMan_KraenIzklKrai) && current_speed>man_speed_low )
+	if((in_VhMan_KraenIzklNach==true || in_VhMan_KraenIzklKrai==true) && current_speed==man_speed_high )
 	// When an end switch is HIGH and the speed is HIGH, decelerate the motor
-	{
-		Dec_Motor();
+	{        ReadSensors();
+                  
+	         if(in_VhMan_KraenIzklKrai==true && man_dir==false)
+                {
+		    Dec_Motor();
+                }
+                if(in_VhMan_KraenIzklNach==true  && man_dir==true)
+                {
+		    Dec_Motor();
+                }
+                
 	}
-	if(in_VhMan_ReperNach || in_VhMan_ReperKrai)
+	if((in_VhMan_ReperNach==true || in_VhMan_ReperKrai==true))
 	{
 		noTone(outPin_VhManipulator_PulsMotor);
 		current_speed=0;
-		delay(3000); // This is where work will happen - to delete
+                Serial.println("Speed is 0");
+		delay(1000); // This is where work will happen - to delete
+                ReadSensors();
 	}
+
 }
 
 void Acc_Motor()
 // Accelerate the motor
 {
-	int speed_steps = man_speed_high/500;
-	for(int i=0; i>=man_speed_high;i=i+speed_steps)
+    int counter=0;
+	int speed_steps = man_speed_high/400;
+	for(int i=0; i<man_speed_high;i=i+speed_steps)
 	{
 		tone(outPin_VhManipulator_PulsMotor, i);
 		delay(1);
+                counter++;
 	}
+        Serial.println("Accelerate");
+        Serial.println(counter);
 	current_speed = man_speed_high;
 }
 
 void Dec_Motor()
 // Decelerate the motor
 {
-	int speed_steps = man_speed_high/500;
-	for(int i=man_speed_high; i<=man_speed_low;i=i-speed_steps)
+  int counter=0;
+  int i;
+	int speed_steps = man_speed_high/300;
+	for(i=man_speed_high; i>man_speed_low; (i=i-speed_steps))
 	{
 		tone(outPin_VhManipulator_PulsMotor, i);
+                counter++;
 		delay(1);
 	}
 	current_speed = man_speed_low;
+        Serial.println(counter);
+        Serial.println("Decelerate");
 }
+
+
 
 void Konteiner()
 /*
@@ -361,7 +392,7 @@ void Initialize()
 */
 {
 	
-	digitalWrite(outPin_VhManipulator_PosokaMotor,HIGH);
+	digitalWrite(outPin_VhManipulator_PosokaMotor,LOW);
 	tone(outPin_VhManipulator_PulsMotor, 500);
 	while(in_VhMan_ReperNach == false || in_VhMan_ReperKrai == false)
 	{
@@ -373,6 +404,38 @@ void Initialize()
 
 void loop()
 {
+  ReadSensors();
+ 
+if(digitalRead(27)==HIGH)
+{
+  Press();
+  if(analogRead(A0)>450)
+  {
+  Serial.println(analogRead(A0));
+  }
+}
+else
+{
+  	digitalWrite(outPin_Presa_Nadolu, LOW);
+	digitalWrite(outPin_Presa_Nagore, LOW);
+}
+  
+
+/*
+  Serial.print(in_IzhMan_ReperNach);
+  Serial.print(in_IzhMan_KraenIzklNach);
+  Serial.print(in_IzhMan_KraenIzklKrai);
+  Serial.print(in_IzhMan_ReperKrai);
+  
+  Serial.print(in_VhMan_ReperNach);
+  Serial.print(in_VhMan_KraenIzklNach);
+  Serial.print(in_VhMan_KraenIzklKrai);
+  Serial.print(in_VhMan_ReperKrai);
+  Serial.println();
+
+*/
+
+  /*
 	if(emergency==LOW) // Operate the production line if there is no emergency
 	{ // Main loop function for normal operation
 	
@@ -404,5 +467,5 @@ void loop()
 			ReadEmergency();
 		}
 	}
-
+*/
 }
