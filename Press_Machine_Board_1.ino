@@ -1,12 +1,12 @@
 
 /*
 	This is control program for production line with press machine using Arduino Mega R3
-	Last Updata Jul 2013
+	Last Update Jul 2013
 	Developed by Tihomir Nedev - nedev@chipolabs.com
 	This Code is for board 1 out of 2 bords for the control 
 
-	With this board we will control the functions of the Press, Container and both manipulators
-	All variables are main variables, there are no local variables for a function
+	With this board we will control the functions of the Press, Container and input manipulator
+	All variables are global variables, there are no local inputs.
 
 */
 
@@ -73,6 +73,10 @@ byte outPin_Nozhica_Butalo1 = 11;
 byte outPin_Nozhica_Butalo2 = 12;
 byte outPin_Nozhica_EnableNozh = 13;
 
+byte pin_material_podaden = 21; // output
+byte pin_presa_udarila = 20; // output
+byte pin_material_vzet = 19; // input
+
 
 
 
@@ -84,7 +88,7 @@ boolean emergency = false; // Used to stop the system if there is an emegency
 int pressureThreshold = 500; // Set the pressure threshold for the press. How much the press has to press. 
 boolean presa_nagore = false, presa_nadolu = false; // Sets the direction of the press
 
-boolean material_podaden = false, presa_udarila = false, material_vzet = true; // values to link the logic of operation of the press and both manipulators
+boolean material_podaden = false, presa_udarila = false, material_vzet = false; // values to link the logic of operation of the press and both manipulators
 int man_speed_high = 2000; // The  high setting of the speed of the input manipulator [Hz of impulse]
 int man_speed_low = 200; // The low setting of the speed of the input manipulator [Hz of impulse]
 int current_speed=0; // sets the current speed of the manipulator
@@ -92,6 +96,7 @@ boolean initial = false; // is the program initialized
 boolean man_dir ; // Direction of the manipulator
 
 int presa_count=0;
+
 
 
 /*
@@ -177,6 +182,11 @@ void setup()
 	pinMode(outPin_Nozhica_Butalo2,OUTPUT);
 	pinMode(outPin_Nozhica_EnableNozh,OUTPUT);
 	
+	pinMode(pin_material_podaden,OUTPUT);
+	pinMode(pin_presa_udarila,OUTPUT);
+	pinMode(pin_material_vzet,INPUT);
+	
+	
 	// Pull-up resistor for the inverted inputs
 	digitalWrite(inPin_Presa_KraenIzklGoren, HIGH);
 	digitalWrite(inPin_Presa_KraenIzklDolen, HIGH);
@@ -221,6 +231,7 @@ void ReadSensors()
 	boolean digital_16[5];
 	boolean digital_17[5];
 	boolean digital_18[5];
+	boolean digital_19[5];
 	int analog_1[50];
 	unsigned long analog_sum=0;
 
@@ -244,6 +255,8 @@ void ReadSensors()
 		digital_16[k] = digitalRead(inPin_Nozhica_Ready1_2);
 		digital_17[k] = digitalRead(inPin_Nozhica_Ready2_1);
 		digital_18[k] = digitalRead(inPin_Nozhica_Ready2_2);
+		digital_19[k] = digitalRead(pin_material_vzet);
+		
 		
 		
 		delayMicroseconds(4);
@@ -320,6 +333,10 @@ void ReadSensors()
 	if(digital_18[0]==digital_18[1] && digital_18[0]==digital_18[2]&& digital_18[0]==digital_18[3]&& digital_18[0]==digital_18[4])
 	{
 		in_Nozhica_Ready2_2 = digital_18[0];
+	}
+	if(digital_19[0]==digital_19[1] && digital_19[0]==digital_19[2]&& digital_19[0]==digital_19[3]&& digital_19[0]==digital_19[4])
+	{
+		material_vzet = digital_19[0];
 	}
 
 	for (int k=0; k<50;k++)

@@ -1,10 +1,10 @@
 /*
 	This is control program for production line with press machine using Arduino Mega R3
-	Last Updata Jul 2013
+	Last Update Jul 2013
 	Developed by Tihomir Nedev - nedev@chipolabs.com
 	This code is for board 2 out of 2 bords for the control
 
-	This board will be used to control the functions for the roller and the scissors 
+	This board will be used to control the functions for the roller and output manipulator
 
 
 */
@@ -61,13 +61,17 @@ byte outPin_Razmotalka_EnableSevo = 10;
 byte outPin_Razmotalka_EnableNozh_Disc = 11;
 byte outPin_Razmotalka_Vakum = 12;
 
+byte pin_material_podaden = 21; // Input
+byte pin_presa_udarila = 20; // input
+byte pin_material_vzet = 19; // output
+
 /*
 	Arduino main variables declaration
 
 */
 
 
-boolean material_podaden = false, presa_udarila = false, material_vzet = true; // values to link the logic of operation of the press and both manipulators
+boolean material_podaden = false, presa_udarila = false, material_vzet = false; // values to link the logic of operation of the press and both manipulators
 int man_speed_high = 4000; // The  high setting of the speed of the input manipulator [Hz of impulse]
 int man_speed_low = 100; // The low setting of the speed of the input manipulator [Hz of impulse]
 int current_speed=0; // sets the current speed of the manipulator
@@ -146,7 +150,10 @@ void setup()
 	pinMode(outPin_Razmotalka_EnableSevo,OUTPUT);
 	pinMode(outPin_Razmotalka_EnableNozh_Disc,OUTPUT);
 	pinMode(outPin_Razmotalka_Vakum,OUTPUT);
-
+	
+	pinMode(pin_material_podaden,INPUT);
+	pinMode(pin_presa_udarila,INPUT);
+	pinMode(pin_material_vzet,OUTPUT);
 
 	digitalWrite (inPin_IzhMan_KraenIzklNach, HIGH);
 	digitalWrite (inPin_IzhMan_KraenIzklKrai, HIGH);
@@ -183,6 +190,8 @@ void ReadSensors()
 	boolean digital_14[5];
 	boolean digital_15[5];
 	boolean digital_16[5];
+	boolean digital_17[5];
+	boolean digital_18[5];
 
 
 	for (int k=0; k<5;k++) // Take 5 readings for all inputs
@@ -204,6 +213,8 @@ void ReadSensors()
 		digital_14[k] = digitalRead(inPin_Razmotalka_ReadyServo);
 		digital_15[k] = digitalRead(inPin_Razmotalka_ReadyNozh);
 		digital_16[k] = digitalRead(inPin_Razmotalka_ReadyDisk);
+		digital_17[k] = digitalRead(pin_material_podaden);
+		digital_18[k] = digitalRead(pin_presa_udarila);
 
 				
 		delayMicroseconds(4);
@@ -274,6 +285,14 @@ void ReadSensors()
 	if(digital_16[0]==digital_16[1] && digital_16[0]==digital_16[2]&& digital_16[0]==digital_16[3]&& digital_16[0]==digital_16[4])
 	{
 		in_Razmotalka_ReadyDisk = digital_16[0];
+	}
+		if(digital_17[0]==digital_17[1] && digital_17[0]==digital_17[2]&& digital_17[0]==digital_17[3]&& digital_17[0]==digital_17[4])
+	{
+		material_podaden = digital_17[0];
+	}
+	if(digital_18[0]==digital_18[1] && digital_18[0]==digital_18[2]&& digital_18[0]==digital_18[3]&& digital_18[0]==digital_18[4])
+	{
+		presa_udarila = digital_18[0];
 	}
 
 	
