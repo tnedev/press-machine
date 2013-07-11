@@ -77,6 +77,7 @@ int man_speed_low = 100; // The low setting of the speed of the input manipulato
 int current_speed=0; // sets the current speed of the manipulator
 boolean initial = false; // is the program initialized
 boolean man_dir ; // Direction of the manipulator
+boolean man_cycle; // shows that a cycle of operation has been done
 
 /*
 	Arduino variables declaration
@@ -294,8 +295,18 @@ void ReadSensors()
 	{
 		presa_udarila = digital_18[0];
 	}
+	
+	digitalWrite(pin_material_vzet, material_vzet);
+	
+	if (material_podaden == true && presa_udarila == true && man_cycle == true)
+	// if the input manipulator and the press have finished, restart the output manipulator
+	{
+		material_vzet = false;
+		man_cycle = false;
+	}
 
 	
+
 
 }
 
@@ -304,7 +315,6 @@ void IzhManipulator()
 	This function operates the input manipulator of the system
 */
 {
-	
 	
 	if( ( in_IzhMan_ReperNach && current_speed == 0) ||(in_IzhMan_ReperKrai && current_speed == 0))
 	{	// When the end switch and reper sensor are HIGH and the speed of the motor is 0, this calls for acceleration of the motor
@@ -318,12 +328,14 @@ void IzhManipulator()
                  {
                   man_dir=true;
                 }
-      
-            
-                
+       
 		digitalWrite(outPin_IzhManipulator_PosokaMotor, man_dir);
-		Acc_Motor();
-                ReadSensors(); 
+		Acc_Motor(); 
+		if (man_dir == false) // if the manipulator is moving out, this could start the input manipulator.
+		{
+			material_vzet = true;
+		}
+		ReadSensors(); 
 	}
 	
 	if((in_IzhMan_KraenIzklNach==true || in_IzhMan_KraenIzklKrai==true) && current_speed==man_speed_high )
@@ -332,20 +344,24 @@ void IzhManipulator()
                   
 	         if(in_IzhMan_KraenIzklKrai==true && man_dir==false)
                 {
-		    Dec_Motor();
+					Dec_Motor();
                 }
                 if(in_IzhMan_KraenIzklNach==true  && man_dir==true)
                 {
-		    Dec_Motor();
+					Dec_Motor();
                 }
                 
 	}
 	if((in_IzhMan_ReperNach==true || in_IzhMan_ReperKrai==true))
 	{
 		noTone(outPin_IzhManipulator_PulsMotor);
+		if(material_vzet == true) // if the element was taken and the manipulatorstoped, this is a cycle
+		{
+			man_cycle = true; // when the work is added, another logic should be added too
+		}
 		current_speed=0;
                 Serial.println("Speed is 0");
-		delay(1000); // This is where work will happen - to delete
+		//delay(1000); // This is where work will happen - to delete
                 ReadSensors();
 	}
 
@@ -405,6 +421,20 @@ void Initialize()
 	}
 	noTone(outPin_IzhManipulator_PulsMotor);
 	initial=true;
+}
+
+void Operation
+/*
+This function controls the normal operation of the program. It sequences the operations of the machine.
+*/
+{
+	ReadSensors();
+	if(material_podaden == true && presa_udarila == true && man_cycle == false ) // ! Add material_vzet to null the previous 2 values
+	{
+		IzhManipulator();
+	}
+
+
 }
 void loop()
 

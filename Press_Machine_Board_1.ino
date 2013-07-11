@@ -11,7 +11,7 @@
 */
 
 /*
-	Progam, how to add new inputs?
+	Progam: how to add new inputs?
 	If a new input has to be added to the program the following actions should be done. 
 	1. Under pins set up - add name and number for the pin.
 	2. Declare a boolean/int value assigned to the new input.
@@ -94,7 +94,7 @@ int man_speed_low = 200; // The low setting of the speed of the input manipulato
 int current_speed=0; // sets the current speed of the manipulator
 boolean initial = false; // is the program initialized
 boolean man_dir ; // Direction of the manipulator
-
+boolean presa_natisna = false; // to know when the press made an element
 int presa_count=0;
 
 
@@ -341,11 +341,18 @@ void ReadSensors()
 
 	for (int k=0; k<50;k++)
 	{
-		analog_sum = analog_sum+analogRead(A0);
+		analog_sum = analog_sum+analogRead(A0); // collect 50 readings from the analog sensor
 	}
-	in_Presa_Pressure = analog_sum/50;
-
+	in_Presa_Pressure = analog_sum/50; // take the mean value from it
 	
+	digitalWrite(pin_material_podaden, material_podaden);
+	digitalWrite(pin_presa_udarila, presa_udarila);
+
+	if(material_vzet == true) // when the material was taken out of the press, restart the first two operations
+	{
+		material_podaden = false;
+		presa_udarila = false;
+	}
 
 }
 
@@ -361,19 +368,24 @@ void Press()
 		{
 			presa_nadolu = 1;
 			presa_nagore = 0;
+			if(presa_natisna==true) // if the upper end switch is pressed and there was an element pressed, presa_udarila could take true value
+			{
+				presa_udarila = true;
+				presa_natisna = false;
+			}
 		}
 		else if(in_Presa_KraenIzklGoren == false && (in_Presa_Pressure >= pressureThreshold || in_Presa_KraenIzklDolen==HIGH)) // If the press is down start going up
-		{
-              
-                        presa_nagore = 1;
-			presa_nadolu = 0;
-			
+		{           
+			presa_nagore = 1;
+			presa_nadolu = 0;	
+			digitalWrite(outPin_Presa_Nadolu, LOW);
+			presa_natisna = true;
+            delay(500);
 		}
 
 		else if (presa_nagore==false && presa_nadolu==false )
 		{
-			presa_nagore = true;
-                        
+			presa_nagore = true;                      
 		}
 
 		if(presa_nadolu==true && presa_nagore==false)// Start moving the press down
@@ -381,10 +393,9 @@ void Press()
 			digitalWrite(outPin_Presa_Nagore, LOW);
 			digitalWrite(outPin_Presa_Nadolu, HIGH);
 		}
-		 else if(presa_nadolu==false && presa_nagore==true) // Start moving the press up
+		else if(presa_nadolu==false && presa_nagore==true) // Start moving the press up
 		{
 			digitalWrite(outPin_Presa_Nadolu, LOW);
-                        delay(500);
 			digitalWrite(outPin_Presa_Nagore, HIGH);
 		}
 		else 
@@ -419,9 +430,7 @@ void VhManipulator()
                  {
                   man_dir=true;
                 }
-      
-            
-                
+           
 		digitalWrite(outPin_VhManipulator_PosokaMotor, man_dir);
 		Acc_Motor();
                 ReadSensors(); 
@@ -429,25 +438,26 @@ void VhManipulator()
 	
 	if((in_VhMan_KraenIzklNach==true || in_VhMan_KraenIzklKrai==true) && current_speed==man_speed_high )
 	// When an end switch is HIGH and the speed is HIGH, decelerate the motor
-	{        ReadSensors();
-                  
-	         if(in_VhMan_KraenIzklKrai==true && man_dir==false)
-                {
-		    Dec_Motor();
-                }
-                if(in_VhMan_KraenIzklNach==true  && man_dir==true)
-                {
-		    Dec_Motor();
-                }
-                
+	{        
+		ReadSensors(); 
+		if(in_VhMan_KraenIzklKrai==true && man_dir==false)
+		{
+			Dec_Motor();
+			material_podaden = true;
+		}
+		if(in_VhMan_KraenIzklNach==true && man_dir==true)
+		{
+			Dec_Motor();
+		}
+
 	}
 	if((in_VhMan_ReperNach==true || in_VhMan_ReperKrai==true))
 	{
 		noTone(outPin_VhManipulator_PulsMotor);
 		current_speed=0;
-                Serial.println("Speed is 0");
-		delay(1000); // This is where work will happen - to delete
-                ReadSensors();
+        Serial.println("Speed is 0");
+		//delay(1000); // This is where work will happen - to delete
+        ReadSensors();
 	}
 
 }
@@ -477,7 +487,7 @@ void Dec_Motor()
 	for(i=man_speed_high; i>man_speed_low; (i=i-speed_steps))
 	{
 		tone(outPin_VhManipulator_PulsMotor, i);
-                counter++;
+        counter++;
 		delay(1);
 	}
 	current_speed = man_speed_low;
@@ -506,8 +516,7 @@ void ReadEmergency()
 	ReadSensors();
 	if(in_Presa_AvariaGlavenMotor == LOW &&
 		in_Konteiner_MotorAvaria == LOW
-		
-	
+
 	)
 	{
 		emergency = LOW;
@@ -528,11 +537,42 @@ void Initialize()
 	}
 	noTone(outPin_VhManipulator_PulsMotor);
 	initial=true;
+	
+	while(in_Presa_KraenIzklGoren == false)
+	{
+		ReadSensors();
+		digitalWrite(outPin_Presa_Nagore, HIGH);
+		digitalWrite(outPin_Presa_Nadolu, LOW);
+	}
+		digitalWrite(outPin_Presa_Nagore, LOW);
+		digitalWrite(outPin_Presa_Nadolu, LOW);
+		presa_nadolu = true;
+		presa_nagore = false;
+}
+
+void Operation
+/*
+This function controls the normal operation of the program. It sequences the operations of the machine.
+boolean material_podaden = false, presa_udarila = false, material_vzet = false;
+*/
+{
+	ReadSensors();
+	if(material_podaden == false && presa_udarila == false ) // ! Add material_vzet to null the previous 2 values
+	{
+		VhManipulator();
+	}
+	else if(presa_udarila == false && material_podaden == true)
+	{
+		Press();
+	}
+
 }
 
 void loop()
 {
   ReadSensors();
+  
+  /*
  
 if(digitalRead(27)==HIGH)
 {
@@ -547,7 +587,7 @@ else
   	digitalWrite(outPin_Presa_Nadolu, LOW);
 	digitalWrite(outPin_Presa_Nagore, LOW);
 }
-  
+  */
 
 /*
   Serial.print(in_VhMan_ReperNach);
