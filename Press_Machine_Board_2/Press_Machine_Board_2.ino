@@ -423,7 +423,7 @@ void Initialize()
 	initial=true;
 }
 
-void Operation
+void Operation()
 /*
 This function controls the normal operation of the program. It sequences the operations of the machine.
 */
