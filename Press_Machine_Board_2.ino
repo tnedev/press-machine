@@ -78,6 +78,8 @@ int current_speed=0; // sets the current speed of the manipulator
 boolean initial = false; // is the program initialized
 boolean man_dir ; // Direction of the manipulator
 boolean man_cycle; // shows that a cycle of operation has been done
+boolean razmotalka_cycle = false; // Show if the roller has already cut a piece of material
+boolean razmotalka_posoka = true; // Show the direction of the disk
 
 /*
 	Arduino variables declaration
@@ -399,6 +401,106 @@ void Dec_Motor()
         Serial.println(counter);
         Serial.println("Decelerate");
 }
+
+void Razmotalka()
+/*
+	This function controls the roller of the machine. 
+	
+*/
+{
+	if(in_Razmotalka_ReadNozh && in_Razmotalka_ReadyServo && in_Razmotalka_ReadyDisk && in_Razmotalka_DatKraiFolio == false)
+	{	// If the motors are Ready and there is material on the spool, enable the motors and start the program
+		digitalWrite(outPin_Razmotalka_EnableSevo, HIGH);
+		digitalWrite(outPin_Razmotalka_EnableNozh_Disc, HIGH);
+
+		// Rolling the material control
+		if(in_Razmotalka_SenzorFolio1==false && in_Razmotalka_SenzorFolio2==false)
+		{ // If no of the sensor is HIGH push the material with high speed
+			digitalWrite(outPin_Razmotalka_MotorNisSkorost, LOW);
+			digitalWrite(outPin_Razmotalka_MotorVisSkorost, HIGH);
+			razmotalka_cycle = false; // when there is no material, we could restart the cycle
+		}
+		else if(in_Razmotalka_SenzorFolio1==true && in_Razmotalka_SenzorFolio2==false)
+		{	// If the sensor 1 is HIGH, start pushing the material with low speed
+			digitalWrite(outPin_Razmotalka_MotorVisSkorost, LOW);
+			digitalWrite(outPin_Razmotalka_MotorNisSkorost, HIGH);
+		}
+		else if(in_Razmotalka_SenzorFolio2==true)
+		{	// If the sensor 2 is HIGH, stop the motor
+			digitalWrite(outPin_Razmotalka_MotorVisSkorost, LOW);
+			digitalWrite(outPin_Razmotalka_MotorNisSkorost, LOW);
+		}
+		
+		// Cutting the material control
+		if(in_Razmotalka_SenzorFolio2==true && razmotalka_cycle==false && in_Razmotalka_NozhStart && razmotalka_posoka)
+		{	// If there is a material and it is still not cut
+			digitalWrite(outPin_Razmotalka_StartNozhicaDiskVrashta, LOW);
+			digitalWrite(outPin_Razmotalka_StartNozhicaDiskOtiva, HIGH);
+			digitalWrite(outPin_Razmotalka_NozhicaVrashta, LOW);
+			digitalWrite(outPin_Razmotalka_NozhicaOtiva, HIGH);
+			
+		}
+		else if(in_Razmotalka_SenzorFolio2==true && razmotalka_cycle==false && in_Razmotalka_NozhStop && razmotalka_posoka)
+		{	// If there is a material and it is cut, stop the blades
+			digitalWrite(outPin_Razmotalka_StartNozhicaDiskVrashta, LOW);
+			digitalWrite(outPin_Razmotalka_StartNozhicaDiskOtiva, LOW);
+			digitalWrite(outPin_Razmotalka_NozhicaVrashta, LOW);
+			digitalWrite(outPin_Razmotalka_NozhicaOtiva, LOW);		
+			razmotalka_cycle = true;
+			razmotalka_posoka = false;		
+		}
+		else if(in_Razmotalka_SenzorFolio2==true && razmotalka_cycle==false && in_Razmotalka_NozhStop && razmotalka_posoka==false)
+		{	// If there is a material and it is still not cut, start the blades
+			digitalWrite(outPin_Razmotalka_StartNozhicaDiskOtiva, LOW);
+			digitalWrite(outPin_Razmotalka_StartNozhicaDiskVrashta, HIGH);
+			digitalWrite(outPin_Razmotalka_NozhicaOtiva, LOW);
+			digitalWrite(outPin_Razmotalka_NozhicaVrashta, HIGH);		
+		}
+		else if(in_Razmotalka_SenzorFolio2==true && razmotalka_cycle==false && in_Razmotalka_NozhStart && razmotalka_posoka==false)
+		{	// If there is a material and it is cur, stop the blades
+			digitalWrite(outPin_Razmotalka_StartNozhicaDiskVrashta, LOW);
+			digitalWrite(outPin_Razmotalka_StartNozhicaDiskOtiva, LOW);
+			digitalWrite(outPin_Razmotalka_NozhicaVrashta, LOW);
+			digitalWrite(outPin_Razmotalka_NozhicaOtiva, LOW);		
+			razmotalka_cycle = true;
+			razmotalka_posoka = true;		
+		}
+		
+		if(in_Razmotalka_DatAkumFolio)
+		{	// If there is enough buffer material, stop the spool motor
+			digitalWrite(outPin_Razmotalka_GlavenMotor, LOW);
+		}
+		else if(in_Razmotalka_DatIzkonsumiranAkum == true && in_Razmotalka_DatAkumFolio == false)
+		{	// if the buffer accumulated material is finished, start rotating the spool
+			digitalWrite(outPin_Razmotalka_GlavenMotor, HIGH);
+		}
+
+	}
+	else
+	{
+		// Avaria
+		digitalWrite(outPin_Razmotalka_StartNozhicaDiskVrashta, LOW);
+		digitalWrite(outPin_Razmotalka_StartNozhicaDiskOtiva, LOW);
+		digitalWrite(outPin_Razmotalka_NozhicaVrashta, LOW);
+		digitalWrite(outPin_Razmotalka_NozhicaOtiva, LOW);
+		digitalWrite(outPin_Razmotalka_MotorVisSkorost, LOW);
+		digitalWrite(outPin_Razmotalka_MotorNisSkorost, LOW);
+		digitalWrite(outPin_Razmotalka_GlavenMotor, LOW);
+		
+		if(in_Razmotalka_DatKraiFolio)
+		{
+			Serial.println("There is no material on the spool")
+		}
+		if(in_Razmotalka_ReadNozh==false && in_Razmotalka_ReadyServo==false && in_Razmotalka_ReadyDisk==false )
+		{
+			Serial.println("A motor stopped working on the roller")
+		}
+		// emergency = true;
+	}
+
+}
+
+
 void ReadEmergency()
 /*
 	This function will block the operation of the production line while
