@@ -81,6 +81,8 @@ boolean man_cycle; // shows that a cycle of operation has been done
 boolean razmotalka_cycle = false; // Show if the roller has already cut a piece of material
 boolean razmotalka_posoka = true; // Show the direction of the disk
 
+boolean posoka1, posoka2;
+
 /*
 	Arduino variables declaration
 	names formation - "input"/"output" + Function_name + name
@@ -408,7 +410,7 @@ void Razmotalka()
 	
 */
 {
-	if(in_Razmotalka_ReadNozh && in_Razmotalka_ReadyServo && in_Razmotalka_ReadyDisk && in_Razmotalka_DatKraiFolio == false)
+	if(in_Razmotalka_ReadyNozh && in_Razmotalka_ReadyServo && in_Razmotalka_ReadyDisk && in_Razmotalka_DatKraiFolio == false)
 	{	// If the motors are Ready and there is material on the spool, enable the motors and start the program
 		digitalWrite(outPin_Razmotalka_EnableSevo, HIGH);
 		digitalWrite(outPin_Razmotalka_EnableNozh_Disc, HIGH);
@@ -489,11 +491,11 @@ void Razmotalka()
 		
 		if(in_Razmotalka_DatKraiFolio)
 		{
-			Serial.println("There is no material on the spool")
+			Serial.println("There is no material on the spool");
 		}
-		if(in_Razmotalka_ReadNozh==false && in_Razmotalka_ReadyServo==false && in_Razmotalka_ReadyDisk==false )
+		if(in_Razmotalka_ReadyNozh==false && in_Razmotalka_ReadyServo==false && in_Razmotalka_ReadyDisk==false )
 		{
-			Serial.println("A motor stopped working on the roller")
+			Serial.println("A motor stopped working on the roller");
 		}
 		// emergency = true;
 	}
@@ -538,11 +540,84 @@ This function controls the normal operation of the program. It sequences the ope
 
 
 }
+
+void Razmotalka_Test()
+{
+  ReadSensors();
+
+if( in_Razmotalka_ReadyNozh==false && in_Razmotalka_ReadyDisk==false )
+{
+   
+   
+   if(digitalRead(26)==true)
+   {
+     if(in_Razmotalka_NozhStart)
+     {
+       posoka2 =false;
+       posoka1=true;
+     }
+     
+     if(in_Razmotalka_NozhStop)
+     {
+       posoka1=false;
+       posoka2=true;
+     }
+     if(posoka1==false && posoka2==false)
+     {
+       posoka2=true;
+     }
+     
+     
+     if(posoka1)
+     {
+       digitalWrite(outPin_Razmotalka_EnableNozh_Disc, HIGH);
+       
+       digitalWrite(outPin_Razmotalka_NozhicaVrashta, LOW); 
+     digitalWrite(outPin_Razmotalka_NozhicaOtiva, HIGH);
+     digitalWrite(outPin_Razmotalka_StartNozhicaDiskVrashta, LOW);
+     digitalWrite(outPin_Razmotalka_StartNozhicaDiskOtiva, HIGH);
+     }
+     if(posoka2)
+     {
+        digitalWrite(outPin_Razmotalka_EnableNozh_Disc, HIGH);
+        
+            digitalWrite(outPin_Razmotalka_NozhicaOtiva, LOW);
+      digitalWrite(outPin_Razmotalka_NozhicaVrashta, HIGH); 
+
+          digitalWrite(outPin_Razmotalka_StartNozhicaDiskOtiva, LOW);
+     digitalWrite(outPin_Razmotalka_StartNozhicaDiskVrashta, HIGH);
+
+     
+     }
+   }
+   else
+   {
+      digitalWrite(outPin_Razmotalka_EnableNozh_Disc, LOW);
+     digitalWrite(outPin_Razmotalka_NozhicaOtiva, LOW);
+     digitalWrite(outPin_Razmotalka_NozhicaVrashta, LOW);
+    digitalWrite(outPin_Razmotalka_StartNozhicaDiskVrashta, LOW);
+    digitalWrite(outPin_Razmotalka_StartNozhicaDiskOtiva, LOW);
+   }
+   
+}
+else 
+{
+     digitalWrite(outPin_Razmotalka_EnableNozh_Disc, LOW);
+     digitalWrite(outPin_Razmotalka_NozhicaOtiva, LOW);
+     digitalWrite(outPin_Razmotalka_NozhicaVrashta, LOW);
+    digitalWrite(outPin_Razmotalka_StartNozhicaDiskVrashta, LOW);
+    digitalWrite(outPin_Razmotalka_StartNozhicaDiskOtiva, LOW);
+  Serial.println("NOT READY");
+
+}
+}
 void loop()
 
 {
 
   ReadSensors();
+  
+  Razmotalka_Test()
   Serial.print(in_IzhMan_ReperNach);
   Serial.print(in_IzhMan_KraenIzklNach);
   Serial.print(in_IzhMan_KraenIzklKrai);

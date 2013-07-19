@@ -32,6 +32,7 @@ byte inPin_Presa_AvariaGlavenMotor = 22;
 
 byte outPin_Presa_Nagore = 26;
 byte outPin_Presa_Nadolu = 28;
+byte outPin_Presa_StopGC = 7;
 byte outPin_Presa_Vakum = 30;
 byte outPin_Presa_Vazduh = 32;
 
@@ -69,12 +70,13 @@ byte inPin_Nozhica_Kraen = 1;
 byte inPin_Nozhica_Nach = 1;
 
 
-byte outPin_Nozhica_MasaGore = 53;
+byte outPin_Nozhica_MasaGore = 52;
 byte outPin_Nozhica_Nozhici1 = 9;
 byte outPin_Nozhica_Nozhici2 = 10;
 byte outPin_Nozhica_Butalo1 = 11;
 byte outPin_Nozhica_Butalo2 = 12;
 byte outPin_Nozhica_EnableNozh = 13;
+byte outPin_Nozhica_Vakum = 6;
 
 byte pin_material_podaden = 21; // output
 byte pin_presa_udarila = 20; // output
@@ -99,7 +101,7 @@ boolean initial = false; // is the program initialized
 boolean man_dir ; // Direction of the manipulator
 boolean presa_natisna = false; // to know when the press made an element
 int presa_count=0;
-boolean nozhica1_napred, nozhica1_nazad,nozhica2_napred, nozhica2_nazad. nozhica_cycle;
+boolean nozhica1_napred, nozhica1_nazad,nozhica2_napred, nozhica2_nazad, nozhica_cycle;
 
 
 
@@ -189,6 +191,7 @@ void setup()
 	pinMode(outPin_Nozhica_Butalo1,OUTPUT);
 	pinMode(outPin_Nozhica_Butalo2,OUTPUT);
 	pinMode(outPin_Nozhica_EnableNozh,OUTPUT);
+	pinMode(outPin_Nozhica_Vakum, OUTPUT);
 	
 	pinMode(pin_material_podaden,OUTPUT);
 	pinMode(pin_presa_udarila,OUTPUT);
@@ -242,6 +245,8 @@ void ReadSensors()
 	boolean digital_17[5];
 	boolean digital_18[5];
 	boolean digital_19[5];
+	boolean digital_20[5];
+	boolean digital_21[5];
 	int analog_1[50];
 	unsigned long analog_sum=0;
 
@@ -401,7 +406,9 @@ void Press()
 			presa_nadolu = 0;	
 			digitalWrite(outPin_Presa_Nadolu, LOW);
 			presa_natisna = true;
+			digitalWrite(outPin_Presa_StopGC, LOW);
             delay(500);
+			digitalWrite(outPin_Presa_Nadolu, LOW);
 		}
 
 		else if (presa_nagore==false && presa_nadolu==false )
@@ -412,6 +419,7 @@ void Press()
 		if(presa_nadolu==true && presa_nagore==false)// Start moving the press down
 		{
 			digitalWrite(outPin_Presa_Nagore, LOW);
+			digitalWrite(outPin_Presa_StopGC, HIGH);
 			digitalWrite(outPin_Presa_Nadolu, HIGH);
 		}
 		else if(presa_nadolu==false && presa_nagore==true) // Start moving the press up
@@ -551,7 +559,7 @@ void Nozhica()
 */
 {
 
-
+/*
 	if(inPin_Nozhica_Ready1_1&&inPin_Nozhica_Ready1_2&&inPin_Nozhica_Ready2_1&&inPin_Nozhica_Ready2_2)
 	{
 		digitalWrite(outPin_Nozhica_EnableNozh, HIGH); // If all motors are ready, set enable
@@ -567,7 +575,7 @@ void Nozhica()
 			{
 				digitalWrite(outPin_Nozhica_MasaGore, LOW); // If the material was placed by the manipulator, push the platform down
 			}
-			if(in_Nozhica_Nach && nozhica2_napred == false && nozhica2_nazad=false && nozhica1_napred==false)
+			if(in_Nozhica_Nach==true && nozhica2_napred == false && nozhica2_nazad=false && nozhica1_napred==false)
 			{
 				nozhica1_nazad==false;
 				nozhica2_nazad==false;
@@ -634,7 +642,7 @@ void Nozhica()
 	{
 		// Emergency
 	}
-
+*/
 }
 
 void ReadEmergency()
@@ -698,19 +706,15 @@ boolean material_podaden = false, presa_udarila = false, material_vzet = false;
 
 }
 
-void loop()
+void Press_test()
 {
-  ReadSensors();
-  Serial.println(in_Presa_Pressure);
-  
-  /*
- 
+ReadSensors(); 
 if(digitalRead(27)==HIGH)
 {
   Press();
-  if(analogRead(A0)>450)
+  if(analogRead(in_Presa_Pressure)>450)
   {
-  Serial.println(analogRead(A0));
+  Serial.println(in_Presa_Pressure);
   }
 }
 else
@@ -718,7 +722,13 @@ else
   	digitalWrite(outPin_Presa_Nadolu, LOW);
 	digitalWrite(outPin_Presa_Nagore, LOW);
 }
-  */
+}
+
+
+void loop()
+{
+ 
+Press_test(); 
 
 /*
   Serial.print(in_VhMan_ReperNach);
