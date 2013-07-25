@@ -25,15 +25,14 @@
 */
 
 
-byte inPin_IzhMan_KraenIzklNach = 24;
-byte inPin_IzhMan_KraenIzklKrai = 22;
-byte inPin_IzhMan_ReperNach = 35;
-byte inPin_IzhMan_ReperKrai = 33;
+byte inPin_IzhMan_KraenIzklNach = 22;
+byte inPin_IzhMan_KraenIzklKrai = 24;
+byte inPin_IzhMan_ReperNach = 33;
+byte inPin_IzhMan_ReperKrai = 35;
 byte inPin_IzhMan_GornoPolozhenie = 26;
-byte inPin_IzhMan_DolnoPolozhenie = 29;
+byte inPin_IzhMan_DolnoPolozhenie = 28;
 
 byte outPin_IzhManipulator_Gore = 30;
-byte outPin_IzhManipulator_Dolu = 32;
 byte outPin_IzhManipulator_Vakum = 34;
 byte outPin_IzhManipulator_Vazduh = 36;
 byte outPin_IzhManipulator_PosokaMotor = 38;
@@ -43,27 +42,29 @@ byte inPin_Razmotalka_SenzorFolio1 = 42;
 byte inPin_Razmotalka_SenzorFolio2 = 44;
 byte inPin_Razmotalka_DatAkumFolio = 37;
 byte inPin_Razmotalka_DatIzkonsumiranAkum = 39;
-byte inPin_Razmotalka_DatKraiFolio = 46;
-byte inPin_Razmotalka_NozhStart = 41;
-byte inPin_Razmotalka_NozhStop = 43;
+byte inPin_Razmotalka_NozhStart = 43;
+byte inPin_Razmotalka_NozhStop = 41;
 byte inPin_Razmotalka_ReadyServo = 52;
 byte inPin_Razmotalka_ReadyNozh = 48;
 byte inPin_Razmotalka_ReadyDisk = 50;
 
-byte outPin_Razmotalka_GlavenMotor = 45;
-byte outPin_Razmotalka_MotorVisSkorost = 47;
-byte outPin_Razmotalka_MotorNisSkorost = 49;
+byte outPin_Razmotalka_GlavenMotor = 3;
+byte outPin_Razmotalka_GlavenMotor_Visoka = 4;
+byte outPin_Razmotalka_MotorVisSkorost = 49;
+byte outPin_Razmotalka_MotorNisSkorost = 47;
 byte outPin_Razmotalka_NozhicaOtiva = 51;
 byte outPin_Razmotalka_NozhicaVrashta = 53;
-byte outPin_Razmotalka_StartNozhicaDiskOtiva = 8;
-byte outPin_Razmotalka_StartNozhicaDiskVrashta = 9;
-byte outPin_Razmotalka_EnableSevo = 10;
-byte outPin_Razmotalka_EnableNozh_Disc = 11;
-byte outPin_Razmotalka_Vakum = 12;
+byte outPin_Razmotalka_StartNozhicaDiskOtiva = 23;
+byte outPin_Razmotalka_StartNozhicaDiskVrashta = 25;
+byte outPin_Razmotalka_EnableSevo = 27;
+byte outPin_Razmotalka_EnableNozh_Disc = 29;
+byte outPin_Razmotalka_Vakum = 31;
 
 byte pin_material_podaden = 21; // Input
 byte pin_presa_udarila = 20; // input
 byte pin_material_vzet = 19; // output
+byte pin_razmotalka_nozh_razreshenie = 18;
+byte pin_razmotalka_stoper = 17;
 
 /*
 	Arduino main variables declaration
@@ -72,15 +73,16 @@ byte pin_material_vzet = 19; // output
 
 
 boolean material_podaden = false, presa_udarila = false, material_vzet = false; // values to link the logic of operation of the press and both manipulators
-int man_speed_high = 4000; // The  high setting of the speed of the input manipulator [Hz of impulse]
-int man_speed_low = 100; // The low setting of the speed of the input manipulator [Hz of impulse]
+int man_speed_high = 3000; // The  high setting of the speed of the input manipulator [Hz of impulse]
+int man_speed_low = 200; // The low setting of the speed of the input manipulator [Hz of impulse]
 int current_speed=0; // sets the current speed of the manipulator
 boolean initial = false; // is the program initialized
 boolean man_dir ; // Direction of the manipulator
 boolean man_cycle; // shows that a cycle of operation has been done
-boolean razmotalka_cycle = false; // Show if the roller has already cut a piece of material
-boolean razmotalka_posoka = true; // Show the direction of the disk
-
+boolean razmotalka_cycle = true; // Show if the roller has already cut a piece of material
+boolean razmotalka_posoka;
+// Show the direction of the disk
+boolean razmotalka_posoka1, razmotalka_posoka2;
 boolean posoka1, posoka2;
 
 /*
@@ -98,7 +100,6 @@ boolean in_Razmotalka_SenzorFolio1 = false;
 boolean in_Razmotalka_SenzorFolio2 = false;
 boolean in_Razmotalka_DatAkumFolio = false;
 boolean in_Razmotalka_DatIzkonsumiranAkum = false;
-boolean in_Razmotalka_DatKraiFolio = false;
 boolean in_Razmotalka_NozhStart = false;
 boolean in_Razmotalka_NozhStop = false;
 boolean in_Razmotalka_ReadyServo = false;
@@ -109,7 +110,9 @@ boolean in_VhMan_KraenIzklNach;
 boolean in_VhMan_KraenIzklKrai;
 boolean in_VhMan_ReperNach;
 boolean in_VhMan_ReperKrai;
-
+boolean razmotalka_nozh_razreshenie = false;
+boolean razmotalka_block=false;
+boolean razmotalka_stoper=false; 
 
 
 void setup()
@@ -120,32 +123,31 @@ void setup()
   // Arduino pinmodes set up
   
 
-	pinMode(inPin_IzhMan_KraenIzklNach,INPUT);
-	pinMode(inPin_IzhMan_KraenIzklKrai,INPUT);
-	pinMode(inPin_IzhMan_ReperNach,INPUT);
-	pinMode(inPin_IzhMan_ReperKrai,INPUT);
-	pinMode(inPin_IzhMan_GornoPolozhenie,INPUT);
-	pinMode(inPin_IzhMan_DolnoPolozhenie,INPUT);
+	pinMode(inPin_IzhMan_KraenIzklNach,INPUT_PULLUP);
+	pinMode(inPin_IzhMan_KraenIzklKrai,INPUT_PULLUP);
+	pinMode(inPin_IzhMan_ReperNach,INPUT_PULLUP);
+	pinMode(inPin_IzhMan_ReperKrai,INPUT_PULLUP);
+	pinMode(inPin_IzhMan_GornoPolozhenie,INPUT_PULLUP);
+	pinMode(inPin_IzhMan_DolnoPolozhenie,INPUT_PULLUP);
 
 	pinMode(outPin_IzhManipulator_Gore,OUTPUT);
-	pinMode(outPin_IzhManipulator_Dolu,OUTPUT);
 	pinMode(outPin_IzhManipulator_Vakum,OUTPUT);
 	pinMode(outPin_IzhManipulator_Vazduh,OUTPUT);
 	pinMode(outPin_IzhManipulator_PosokaMotor,OUTPUT);
 	pinMode(outPin_IzhManipulator_PulsMotor,OUTPUT);
   
-	pinMode(inPin_Razmotalka_SenzorFolio1,INPUT);
-	pinMode(inPin_Razmotalka_SenzorFolio2,INPUT);
-	pinMode(inPin_Razmotalka_DatAkumFolio,INPUT);
-	pinMode(inPin_Razmotalka_DatIzkonsumiranAkum,INPUT);
-	pinMode(inPin_Razmotalka_DatKraiFolio,INPUT);
-	pinMode(inPin_Razmotalka_NozhStart,INPUT);
-	pinMode(inPin_Razmotalka_NozhStop,INPUT);
-	pinMode(inPin_Razmotalka_ReadyServo,INPUT);
-	pinMode(inPin_Razmotalka_ReadyNozh,INPUT);
-	pinMode(inPin_Razmotalka_ReadyDisk,INPUT);
+	pinMode(inPin_Razmotalka_SenzorFolio1,INPUT_PULLUP);
+	pinMode(inPin_Razmotalka_SenzorFolio2,INPUT_PULLUP);
+	pinMode(inPin_Razmotalka_DatAkumFolio,INPUT_PULLUP);
+	pinMode(inPin_Razmotalka_DatIzkonsumiranAkum,INPUT_PULLUP);
+	pinMode(inPin_Razmotalka_NozhStart,INPUT_PULLUP);
+	pinMode(inPin_Razmotalka_NozhStop,INPUT_PULLUP);
+	pinMode(inPin_Razmotalka_ReadyServo,INPUT_PULLUP);
+	pinMode(inPin_Razmotalka_ReadyNozh,INPUT_PULLUP);
+	pinMode(inPin_Razmotalka_ReadyDisk,INPUT_PULLUP);
 
 	pinMode(outPin_Razmotalka_GlavenMotor,OUTPUT);
+        pinMode(outPin_Razmotalka_GlavenMotor_Visoka,OUTPUT);
 	pinMode(outPin_Razmotalka_MotorVisSkorost,OUTPUT);
 	pinMode(outPin_Razmotalka_MotorNisSkorost,OUTPUT);
 	pinMode(outPin_Razmotalka_NozhicaOtiva,OUTPUT);
@@ -159,11 +161,10 @@ void setup()
 	pinMode(pin_material_podaden,INPUT);
 	pinMode(pin_presa_udarila,INPUT);
 	pinMode(pin_material_vzet,OUTPUT);
+        pinMode(pin_razmotalka_nozh_razreshenie, INPUT);
+        pinMode(pin_razmotalka_stoper, OUTPUT);
+        pinMode(13,INPUT_PULLUP);
 
-	digitalWrite (inPin_IzhMan_KraenIzklNach, HIGH);
-	digitalWrite (inPin_IzhMan_KraenIzklKrai, HIGH);
-	digitalWrite (inPin_IzhMan_ReperNach, HIGH);
-	digitalWrite (inPin_IzhMan_ReperKrai, HIGH);
 
 
 }
@@ -212,7 +213,7 @@ void ReadSensors()
 		digital_8[k] = digitalRead(inPin_Razmotalka_SenzorFolio2);
 		digital_9[k] = digitalRead(inPin_Razmotalka_DatAkumFolio);
 		digital_10[k] = digitalRead(inPin_Razmotalka_DatIzkonsumiranAkum);
-		digital_11[k] = digitalRead(inPin_Razmotalka_DatKraiFolio);
+		digital_11[k] = digitalRead(pin_razmotalka_nozh_razreshenie);
 		digital_12[k] = digitalRead(inPin_Razmotalka_NozhStart);
 		digital_13[k] = digitalRead(inPin_Razmotalka_NozhStop);
 		digital_14[k] = digitalRead(inPin_Razmotalka_ReadyServo);
@@ -267,9 +268,9 @@ void ReadSensors()
 	{
 		in_Razmotalka_DatIzkonsumiranAkum = digital_10[0];
 	}
-	if(digital_10[0]==digital_11[1] && digital_11[0]==digital_11[2]&& digital_11[0]==digital_11[3]&& digital_11[0]==digital_11[4])
+	if(digital_11[0]==digital_11[1] && digital_11[0]==digital_11[2]&& digital_11[0]==digital_11[3]&& digital_11[0]==digital_11[4])
 	{
-		in_Razmotalka_DatKraiFolio = digital_11[0];
+		razmotalka_nozh_razreshenie = digital_11[0];
 	}
 	if(digital_12[0]==digital_12[1] && digital_12[0]==digital_12[2]&& digital_12[0]==digital_12[3]&& digital_12[0]==digital_12[4])
 	{
@@ -300,14 +301,15 @@ void ReadSensors()
 		presa_udarila = digital_18[0];
 	}
 	
-	digitalWrite(pin_material_vzet, material_vzet);
 	
-	if (material_podaden == true && presa_udarila == true && man_cycle == true)
+	if (material_podaden == false && presa_udarila == false )
 	// if the input manipulator and the press have finished, restart the output manipulator
 	{
 		material_vzet = false;
 		man_cycle = false;
 	}
+        digitalWrite(pin_material_vzet, man_cycle); // man_cycle to show that the cycle has finished. The other manipulator will wait until then
+        digitalWrite(pin_razmotalka_stoper, razmotalka_stoper); // it show if the cutter of the roller is at end position, this will allow the input manipulator to work
 
 	
 
@@ -326,42 +328,51 @@ void IzhManipulator()
 
                if(in_IzhMan_ReperNach==true)
                 {
-                  man_dir=false;
+                  man_dir=true;
                 }
                 if(in_IzhMan_ReperKrai==true)
                  {
-                  man_dir=true;
+                  man_dir=false;
                 }
-       
+
 		digitalWrite(outPin_IzhManipulator_PosokaMotor, man_dir);
-		Acc_Motor(); 
+		Acc_Motor();  
+                ReadSensors();
+
 		if (man_dir == false) // if the manipulator is moving out, this could start the input manipulator.
 		{
 			material_vzet = true;
+                        digitalWrite(pin_material_vzet, man_cycle);
+                        Serial.println("Material vzet!");
 		}
-		ReadSensors(); 
+
+
+ 
 	}
 	
 	if((in_IzhMan_KraenIzklNach==true || in_IzhMan_KraenIzklKrai==true) && current_speed==man_speed_high )
 	// When an end switch is HIGH and the speed is HIGH, decelerate the motor
 	{        ReadSensors();
                   
-	         if(in_IzhMan_KraenIzklKrai==true && man_dir==false)
+	         if(in_IzhMan_KraenIzklNach==true && man_dir==false)
                 {
 					Dec_Motor();
+                                        ReadSensors();
                 }
-                if(in_IzhMan_KraenIzklNach==true  && man_dir==true)
+                if(in_IzhMan_KraenIzklKrai==true  && man_dir==true)
                 {
 					Dec_Motor();
+                                        ReadSensors();
                 }
                 
 	}
 	if((in_IzhMan_ReperNach==true || in_IzhMan_ReperKrai==true))
 	{
 		noTone(outPin_IzhManipulator_PulsMotor);
-		if(material_vzet == true) // if the element was taken and the manipulatorstoped, this is a cycle
+		if(material_vzet == true && presa_udarila==true) // if the element was taken and the manipulatorstoped, this is a cycle
 		{
 			man_cycle = true; // when the work is added, another logic should be added too
+                        Serial.println("Man Cycle is true");
 		}
 		current_speed=0;
                 Serial.println("Speed is 0");
@@ -374,34 +385,26 @@ void IzhManipulator()
 void Acc_Motor()
 // Accelerate the motor
 {
-    int counter=0;
 	int speed_steps = man_speed_high/400;
 	for(int i=0; i<man_speed_high;i=i+speed_steps)
 	{
 		tone(outPin_IzhManipulator_PulsMotor, i);
 		delay(1);
-                counter++;
 	}
-        Serial.println("Accelerate");
-        Serial.println(counter);
 	current_speed = man_speed_high;
 }
 
 void Dec_Motor()
 // Decelerate the motor
 {
-  int counter=0;
   int i;
 	int speed_steps = man_speed_high/300;
 	for(i=man_speed_high; i>man_speed_low; (i=i-speed_steps))
 	{
 		tone(outPin_IzhManipulator_PulsMotor, i);
-                counter++;
 		delay(1);
 	}
 	current_speed = man_speed_low;
-        Serial.println(counter);
-        Serial.println("Decelerate");
 }
 
 void Razmotalka()
@@ -409,78 +412,150 @@ void Razmotalka()
 	This function controls the roller of the machine. 
 	
 */
-{
-	if(in_Razmotalka_ReadyNozh && in_Razmotalka_ReadyServo && in_Razmotalka_ReadyDisk && in_Razmotalka_DatKraiFolio == false)
+{  
+          if(in_Razmotalka_NozhStop || in_Razmotalka_NozhStart)
+          {
+          razmotalka_stoper = true;
+          }
+          else
+          {
+            razmotalka_stoper = false;
+          }
+	if(in_Razmotalka_ReadyNozh==false && in_Razmotalka_ReadyServo==false && in_Razmotalka_ReadyDisk==false )
 	{	// If the motors are Ready and there is material on the spool, enable the motors and start the program
 		digitalWrite(outPin_Razmotalka_EnableSevo, HIGH);
 		digitalWrite(outPin_Razmotalka_EnableNozh_Disc, HIGH);
 
 		// Rolling the material control
-		if(in_Razmotalka_SenzorFolio1==false && in_Razmotalka_SenzorFolio2==false)
+		if(in_Razmotalka_SenzorFolio1==true && in_Razmotalka_SenzorFolio2==true)
 		{ // If no of the sensor is HIGH push the material with high speed
 			digitalWrite(outPin_Razmotalka_MotorNisSkorost, LOW);
 			digitalWrite(outPin_Razmotalka_MotorVisSkorost, HIGH);
+                         Serial.println("Motor high speed");
 			razmotalka_cycle = false; // when there is no material, we could restart the cycle
 		}
-		else if(in_Razmotalka_SenzorFolio1==true && in_Razmotalka_SenzorFolio2==false)
+		else if(in_Razmotalka_SenzorFolio1==false && in_Razmotalka_SenzorFolio2==true)
 		{	// If the sensor 1 is HIGH, start pushing the material with low speed
 			digitalWrite(outPin_Razmotalka_MotorVisSkorost, LOW);
-			digitalWrite(outPin_Razmotalka_MotorNisSkorost, HIGH);
+			digitalWrite(outPin_Razmotalka_MotorNisSkorost, HIGH);  
+                        Serial.println("Motor low speed");
+                        razmotalka_cycle = false;
 		}
-		else if(in_Razmotalka_SenzorFolio2==true)
+		else if(in_Razmotalka_SenzorFolio2==false && in_Razmotalka_SenzorFolio1==false)
 		{	// If the sensor 2 is HIGH, stop the motor
 			digitalWrite(outPin_Razmotalka_MotorVisSkorost, LOW);
 			digitalWrite(outPin_Razmotalka_MotorNisSkorost, LOW);
+                  if(razmotalka_block==true)
+                  {
+                        digitalWrite(outPin_Razmotalka_Vakum, HIGH);
+                  }
+		}
+		if(in_Razmotalka_SenzorFolio2==false && in_Razmotalka_SenzorFolio1==false && razmotalka_cycle==false && in_Razmotalka_NozhStop && razmotalka_posoka2==true && razmotalka_block==true )
+		{	// If there is a material and it is cur, stop the blades
+
+                         digitalWrite(outPin_Razmotalka_Vakum, LOW);
+			digitalWrite(outPin_Razmotalka_StartNozhicaDiskVrashta, LOW);
+			digitalWrite(outPin_Razmotalka_StartNozhicaDiskOtiva, LOW);
+			digitalWrite(outPin_Razmotalka_NozhicaVrashta, LOW);
+			digitalWrite(outPin_Razmotalka_NozhicaOtiva, LOW);	
+                        Serial.println("Nozhica vrashta spira");	
+                          razmotalka_cycle = true;	
+                          razmotalka_block=false;	
+		}
+	      if(in_Razmotalka_SenzorFolio2==false && in_Razmotalka_SenzorFolio1==false && in_Razmotalka_NozhStart && razmotalka_cycle==false && razmotalka_posoka1==true && razmotalka_block==true)
+		{	// If there is a material and it is cut, stop the blades
+                         digitalWrite(outPin_Razmotalka_Vakum, LOW);
+			digitalWrite(outPin_Razmotalka_StartNozhicaDiskVrashta, LOW);
+			digitalWrite(outPin_Razmotalka_StartNozhicaDiskOtiva, LOW);
+			digitalWrite(outPin_Razmotalka_NozhicaVrashta, LOW);
+			digitalWrite(outPin_Razmotalka_NozhicaOtiva, LOW);
+                        razmotalka_block=false;
+                          Serial.println("Nozhica otiva spira");		
+			razmotalka_cycle = true;		
+		}
+		// Cutting the material control
+		if(in_Razmotalka_SenzorFolio2==false && in_Razmotalka_SenzorFolio1==false && razmotalka_cycle==false && in_Razmotalka_NozhStop)// && razmotalka_posoka2==true )
+		{	// If there is a material and it is still not cut
+                          razmotalka_posoka1=true;
+                          razmotalka_posoka2=false;
+                          razmotalka_block=true;
+                         Serial.println("Nozhica otiva");
+			
+		}
+	
+
+		if(in_Razmotalka_SenzorFolio2==false && in_Razmotalka_SenzorFolio1==false && razmotalka_cycle==false && in_Razmotalka_NozhStart)// && razmotalka_posoka1==true)
+		{	// If there is a material and it is still not cut, start the blades
+                           razmotalka_posoka1=false;
+                          razmotalka_posoka2=true;
+                          razmotalka_block=true;
+                         Serial.println("Nozhica vrashta");	
 		}
 		
-		// Cutting the material control
-		if(in_Razmotalka_SenzorFolio2==true && razmotalka_cycle==false && in_Razmotalka_NozhStart && razmotalka_posoka)
-		{	// If there is a material and it is still not cut
+                if(razmotalka_posoka1 == false && razmotalka_posoka2==true && razmotalka_cycle==false && in_Razmotalka_SenzorFolio2==false && in_Razmotalka_SenzorFolio1==false && razmotalka_nozh_razreshenie)
+                {
+                       // digitalWrite(outPin_Razmotalka_Vakum, HIGH);
+			digitalWrite(outPin_Razmotalka_StartNozhicaDiskOtiva, LOW);
+			digitalWrite(outPin_Razmotalka_StartNozhicaDiskVrashta, HIGH);
+			digitalWrite(outPin_Razmotalka_NozhicaOtiva, LOW);
+			digitalWrite(outPin_Razmotalka_NozhicaVrashta, HIGH);
+                }
+                if(razmotalka_posoka2 == false && razmotalka_posoka1==true && razmotalka_cycle==false && in_Razmotalka_SenzorFolio2==false && in_Razmotalka_SenzorFolio1==false && razmotalka_nozh_razreshenie)
+                {
+                        // digitalWrite(outPin_Razmotalka_Vakum, HIGH);
 			digitalWrite(outPin_Razmotalka_StartNozhicaDiskVrashta, LOW);
 			digitalWrite(outPin_Razmotalka_StartNozhicaDiskOtiva, HIGH);
 			digitalWrite(outPin_Razmotalka_NozhicaVrashta, LOW);
 			digitalWrite(outPin_Razmotalka_NozhicaOtiva, HIGH);
-			
-		}
-		else if(in_Razmotalka_SenzorFolio2==true && razmotalka_cycle==false && in_Razmotalka_NozhStop && razmotalka_posoka)
-		{	// If there is a material and it is cut, stop the blades
-			digitalWrite(outPin_Razmotalka_StartNozhicaDiskVrashta, LOW);
-			digitalWrite(outPin_Razmotalka_StartNozhicaDiskOtiva, LOW);
-			digitalWrite(outPin_Razmotalka_NozhicaVrashta, LOW);
-			digitalWrite(outPin_Razmotalka_NozhicaOtiva, LOW);		
-			razmotalka_cycle = true;
-			razmotalka_posoka = false;		
-		}
-		else if(in_Razmotalka_SenzorFolio2==true && razmotalka_cycle==false && in_Razmotalka_NozhStop && razmotalka_posoka==false)
-		{	// If there is a material and it is still not cut, start the blades
-			digitalWrite(outPin_Razmotalka_StartNozhicaDiskOtiva, LOW);
-			digitalWrite(outPin_Razmotalka_StartNozhicaDiskVrashta, HIGH);
-			digitalWrite(outPin_Razmotalka_NozhicaOtiva, LOW);
-			digitalWrite(outPin_Razmotalka_NozhicaVrashta, HIGH);		
-		}
-		else if(in_Razmotalka_SenzorFolio2==true && razmotalka_cycle==false && in_Razmotalka_NozhStart && razmotalka_posoka==false)
-		{	// If there is a material and it is cur, stop the blades
-			digitalWrite(outPin_Razmotalka_StartNozhicaDiskVrashta, LOW);
-			digitalWrite(outPin_Razmotalka_StartNozhicaDiskOtiva, LOW);
-			digitalWrite(outPin_Razmotalka_NozhicaVrashta, LOW);
-			digitalWrite(outPin_Razmotalka_NozhicaOtiva, LOW);		
-			razmotalka_cycle = true;
-			razmotalka_posoka = true;		
-		}
-		
+                }
+                else
+                {
+                  if(in_Razmotalka_NozhStart)
+                  {
+                  razmotalka_posoka2=true;
+                  razmotalka_posoka1=false;
+                  }
+                  else if(in_Razmotalka_NozhStop)
+                  {
+                  razmotalka_posoka2=false;
+                  razmotalka_posoka1=true;
+                  }
+                  else
+                  {
+                    razmotalka_posoka2=true;
+                    razmotalka_posoka1=false;
+                  }
+                  
+                }
+                if(in_Razmotalka_SenzorFolio2==true)
+                {
+                  razmotalka_cycle = false;
+                }
+		  
 		if(in_Razmotalka_DatAkumFolio)
 		{	// If there is enough buffer material, stop the spool motor
-			digitalWrite(outPin_Razmotalka_GlavenMotor, LOW);
+		  digitalWrite(outPin_Razmotalka_GlavenMotor, HIGH);
 		}
-		else if(in_Razmotalka_DatIzkonsumiranAkum == true && in_Razmotalka_DatAkumFolio == false)
-		{	// if the buffer accumulated material is finished, start rotating the spool
-			digitalWrite(outPin_Razmotalka_GlavenMotor, HIGH);
-		}
+                else
+                {
+                  digitalWrite(outPin_Razmotalka_GlavenMotor, LOW);
+                }
+                if (in_Razmotalka_DatIzkonsumiranAkum==false)
+                {
+                  digitalWrite(outPin_Razmotalka_GlavenMotor_Visoka, HIGH);
+                }
+                else
+                {
+                  digitalWrite(outPin_Razmotalka_GlavenMotor_Visoka, LOW);
+                }
+		
 
 	}
 	else
 	{
-		// Avaria
+		// Avaria 
+                Serial.println("Motors not Ready");
+                delay(500);
 		digitalWrite(outPin_Razmotalka_StartNozhicaDiskVrashta, LOW);
 		digitalWrite(outPin_Razmotalka_StartNozhicaDiskOtiva, LOW);
 		digitalWrite(outPin_Razmotalka_NozhicaVrashta, LOW);
@@ -489,10 +564,6 @@ void Razmotalka()
 		digitalWrite(outPin_Razmotalka_MotorNisSkorost, LOW);
 		digitalWrite(outPin_Razmotalka_GlavenMotor, LOW);
 		
-		if(in_Razmotalka_DatKraiFolio)
-		{
-			Serial.println("There is no material on the spool");
-		}
 		if(in_Razmotalka_ReadyNozh==false && in_Razmotalka_ReadyServo==false && in_Razmotalka_ReadyDisk==false )
 		{
 			Serial.println("A motor stopped working on the roller");
@@ -518,13 +589,16 @@ void Initialize()
 {
 	
 	digitalWrite(outPin_IzhManipulator_PosokaMotor,LOW);
+        Serial.println("Initialize");
 	tone(outPin_IzhManipulator_PulsMotor, 500);
-	while(in_IzhMan_ReperNach == false && in_IzhMan_ReperKrai == false)
+	while(in_IzhMan_ReperNach == false && in_IzhMan_ReperKrai == false && digitalRead(13)==true)
 	{
 		ReadSensors();
 	}
 	noTone(outPin_IzhManipulator_PulsMotor);
+
 	initial=true;
+        current_speed = 0;
 }
 
 void Operation()
@@ -533,10 +607,17 @@ This function controls the normal operation of the program. It sequences the ope
 */
 {
 	ReadSensors();
+ 
 	if(material_podaden == true && presa_udarila == true && man_cycle == false ) // ! Add material_vzet to null the previous 2 values
 	{
+                 if(initial==false)
+                {
+                  Initialize(); 
+                }
 		IzhManipulator();
+               
 	}
+         Razmotalka();
 
 
 }
@@ -616,21 +697,44 @@ void loop()
 {
 
   ReadSensors();
+  if (digitalRead(13)==true)
+{
+  Operation();
+ 
+}
+else
+{
+		digitalWrite(outPin_Razmotalka_StartNozhicaDiskVrashta, LOW);
+		digitalWrite(outPin_Razmotalka_StartNozhicaDiskOtiva, LOW);
+		digitalWrite(outPin_Razmotalka_NozhicaVrashta, LOW);
+		digitalWrite(outPin_Razmotalka_NozhicaOtiva, LOW);
+		digitalWrite(outPin_Razmotalka_MotorVisSkorost, LOW);
+		digitalWrite(outPin_Razmotalka_MotorNisSkorost, LOW);
+		digitalWrite(outPin_Razmotalka_GlavenMotor, LOW);
+		digitalWrite(outPin_Razmotalka_EnableSevo, LOW);
+		digitalWrite(outPin_Razmotalka_EnableNozh_Disc, LOW);
+                digitalWrite(outPin_Razmotalka_Vakum, LOW);
+                 noTone(outPin_IzhManipulator_PulsMotor);
+                 Serial.println("Press the button");
+    delay(1000);
+}
+
+/*
+if(digitalRead(13)==false)
+{
+  Operation();
+}
+else
+{
+  noTone(outPin_IzhManipulator_PulsMotor);
+  Serial.print(material_podaden);
+  Serial.print(presa_udarila);
+  Serial.println(material_vzet);
+  delay(500);
   
-  Razmotalka_Test()
-  Serial.print(in_IzhMan_ReperNach);
-  Serial.print(in_IzhMan_KraenIzklNach);
-  Serial.print(in_IzhMan_KraenIzklKrai);
-  Serial.print(in_IzhMan_ReperKrai);
-  
-  Serial.print(in_VhMan_ReperNach);
-  Serial.print(in_VhMan_KraenIzklNach);
-  Serial.print(in_VhMan_KraenIzklKrai);
-  Serial.print(in_VhMan_ReperKrai);
-  Serial.println();
+}
 
-
-
+*/
 /*	if(initial==false)
 		{
 			Initialize();
