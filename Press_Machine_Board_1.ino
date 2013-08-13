@@ -1,4 +1,4 @@
-//*
+/*
 	This is control program for production line with press machine using Arduino Mega R3
 	Last Update Jul 2013
 	Developed by Tihomir Nedev - nedev@chipolabs.com
@@ -79,7 +79,7 @@ byte pin_starter = 13;
 
 */
 boolean emergency = false; // Used to stop the system if there is an emegency
-int pressureThreshold = 500; // Set the pressure threshold for the press. How much the press has to press. 
+int pressureThreshold = 480; // Set the pressure threshold for the press. How much the press has to press. 
 boolean presa_nagore = false, presa_nadolu = false; // Sets the direction of the press
 
 boolean material_podaden = false, presa_udarila = false, material_vzet = false; // values to link the logic of operation of the press and both manipulators
@@ -223,7 +223,7 @@ void ReadSensors()
 	boolean digital_20[5];
 	boolean digital_21[5];
         boolean digital_22[5];
-	int analog_1[50];
+       int analog_1[50];
 	unsigned long analog_sum=0;
 
 	for (int k=0; k<5;k++) // Take 5 readings for all inputs
@@ -343,6 +343,7 @@ void ReadSensors()
 	{
 		starter = digital_22[0];
 	}
+
 
 	for (int k=0; k<50;k++)
 	{
@@ -571,9 +572,11 @@ void Manipulator_Take()
 	  {
 		ReadSensors();
 		digitalWrite(outPin_VhManipulator_Gore, HIGH);
+                digitalWrite(outPin_VhManipulator_Vakum, HIGH);
 	  }
-	    digitalWrite(outPin_VhManipulator_Vakum, HIGH);
+	    
 	    razmotalka_nozh_razreshenie=true;
+            ReadSensors();
 	  while(razmotalka_stoper==false )//|| digitalRead(27));
 	  {
 		ReadSensors();
@@ -588,6 +591,7 @@ void Manipulator_Take()
           digitalWrite(outPin_Presa_Vakum, LOW);
                 }
 	  }
+      razmotalka_nozh_razreshenie=false;
 	  
 	  while(in_VhMan_GornoPolozhenie==true )//&& digitalRead(27))
 	  {

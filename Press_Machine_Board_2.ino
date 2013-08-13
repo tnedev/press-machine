@@ -83,6 +83,7 @@ boolean nozhici_mark = false;
 boolean nozhici_cycle = false; // indicates a cycle for the cutters. 
 boolean nozhici_finish = false; 
 boolean starter = false; 
+boolean roller_razreshenie=true; 
 /*
 	Arduino variables declaration
 	names formation - "input"/"output" + Function_name + name
@@ -313,7 +314,10 @@ if(digital_17[0]==digital_17[1] && digital_17[0]==digital_17[2]&& digital_17[0]=
                  razmotalka_cycle=false;
                  nozhici_cycle=false; 
                  nozhici_finish = false; 
+                 roller_razreshenie = true; 
+            
 	}
+  
 
      if(razmotalka_stoper=true && nozhici_finish==true)
      {
@@ -424,7 +428,7 @@ void Razmotalka()
 		digitalWrite(outPin_Razmotalka_EnableNozh_Disc, HIGH);
 
 		// Rolling the material control
-		if(in_Razmotalka_SenzorFolio1==true && in_Razmotalka_SenzorFolio2==true && (in_Razmotalka_NozhStop || in_Razmotalka_NozhStart))
+		if(in_Razmotalka_SenzorFolio1==true && in_Razmotalka_SenzorFolio2==true && (in_Razmotalka_NozhStop || in_Razmotalka_NozhStart) )
 		{ // If no of the sensor is HIGH push the material with high speed
 			digitalWrite(outPin_Razmotalka_MotorNisSkorost, LOW);
 			digitalWrite(outPin_Razmotalka_MotorVisSkorost, HIGH);
@@ -515,15 +519,18 @@ void Razmotalka()
                   razmotalka_cycle = false;
                 }
 		  
-		if(in_Razmotalka_DatAkumFolio && presa_udarila==false)
+              if(roller_razreshenie)
+              {
+		if(in_Razmotalka_DatAkumFolio && presa_udarila==false )
 		{	// If there is enough buffer material, stop the spool motor
 		  digitalWrite(outPin_Razmotalka_GlavenMotor, HIGH);
 		}
                 else
                 {
                   digitalWrite(outPin_Razmotalka_GlavenMotor, LOW);
+                  roller_razreshenie=false; 
                 }
-                if (in_Razmotalka_DatIzkonsumiranAkum==false && presa_udarila==false)
+                if (in_Razmotalka_DatIzkonsumiranAkum==false && presa_udarila==false )
                 {
                   digitalWrite(outPin_Razmotalka_GlavenMotor_Visoka, HIGH);
                 }
@@ -532,7 +539,7 @@ void Razmotalka()
                   digitalWrite(outPin_Razmotalka_GlavenMotor_Visoka, LOW);
                 }
 		
-
+              }
 	}
 	else
 	{
@@ -601,7 +608,6 @@ void loop()
 
   ReadSensors();
 
-  Serial.println(in_Nozhica_GornoPolozh);
   /*
   Serial.print("Nozhica GP/DP: ");
   Serial.print(digitalRead(inPin_Nozhica_GornoPolozh));
@@ -625,9 +631,7 @@ void loop()
 
   if (starter==true)
 {
-Operation();
-
- 
+  Operation();
 }
 else
 {
