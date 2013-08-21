@@ -4,7 +4,7 @@
 	Developed by Tihomir Nedev - nedev@chipolabs.com
 	This Code is for board 1 out of 2 bords for the control 
 
-	With this board we will control the functions of the Press, Container and input manipulator
+	With this board we will control the functions of the Press, Output and input manipulators
 	All variables are global variables, there are no local inputs.
 
 */
@@ -71,7 +71,7 @@ byte pin_material_vzet = 19;
 byte pin_razmotalka_stoper = 17;
 byte pin_nozhica_cycle = 16; 
 byte pin_razmotalka_nozh_razreshenie=14;
-byte pin_nozhica_razr = 15; 
+byte pin_nozhica_razr = 18; 
 
 byte pin_starter = 13; 
 
@@ -80,31 +80,48 @@ byte pin_starter = 13;
 
 */
 boolean emergency = false; // Used to stop the system if there is an emegency
-int pressureThreshold = 480; // Set the pressure threshold for the press. How much the press has to press. 
 boolean presa_nagore = false, presa_nadolu = false; // Sets the direction of the press
 
-boolean material_podaden = false, presa_udarila = false, material_vzet = false; // values to link the logic of operation of the press and both manipulators
-int man_speed_high = 4000; // The  high setting of the speed of the input manipulator [Hz of impulse]
-int man_speed_low = 100; // The low setting of the speed of the input manipulator [Hz of impulse]
-int current_speed=0; // sets the current speed of the manipulator
-boolean initial = false; // is the program initialized
-boolean man_dir ; // Direction of the manipulator
-boolean man_cycle=false;
-boolean presa_natisna = false; // to know when the press made an element
-int presa_count=0;
-boolean razmotalka_nozh_razreshenie=false;
-boolean razmotalka_stoper;
-boolean presa_razreshenie = false; 
+// Settings 
+int man_speed_high = 4000; // Now used only to verify current_speed
+int man_speed_low = 100; // Now used only to verify current_speed
+int pressureThreshold = 480; // Set the pressure threshold for the press. How much the press has to press. 
 
-int IzhCurrent_speed=0; // sets the current speed of the manipulator
-boolean Izhhan_dir ; // Direction of the manipulator
+boolean material_podaden = false, presa_udarila = false, material_vzet = false; // values to link the logic of operation of the press and both manipulators
+
+// Values which change in the operation of the program 
+int presa_count=0;
+int current_speed=0; // sets the current speed of the input manipulator
+int IzhCurrent_speed=0; // sets the current speed of the output manipulator
+
+// Values showing where is the program at
+boolean initial = false; // is the program initialized
+boolean man_dir ; // Direction of the input manipulator
+boolean man_cycle=false; // Manipulator cycle
+boolean presa_natisna = false; // to know when the press made an element
+
+boolean razmotalka_nozh_razreshenie=false; // Gives the right for the blade to cut the foil
+boolean razmotalka_stoper; // This values is used to withhold the manipulator going up, before the foil is cut
+boolean presa_razreshenie = false;  // This gives the press rights to start working
+
+boolean Izhhan_dir ; // Direction of the output manipulator
 boolean IzhMan_cycle; // shows that a cycle of operation has been done
-boolean manipulator_cycle = false; 
-boolean nozhica_cycle=false; 
-boolean IzhMan_dir=false; 
-boolean starter; 
+boolean manipulator_cycle = false; // cycle of the output manipulator
+boolean nozhica_cycle=false; // cycle of the cutters
+boolean IzhMan_dir=false; // direction of the output manipulator
+boolean starter;  // used to start the program with the manual switch
 
 boolean emergency_b1=false, emergency_b2=false; // emergency in board 1 or 2
+
+// byte commands for the program;those are compared to the incoming byte for an event
+byte program_start_command = 15; // It means that when we receive this value it will trigger the command. It will change the program_start to false; 
+byte program_stop_command = 16; 
+byte program_pause_command = 17; 
+
+// Global Variables to be used with the Serial.read()
+boolean program_start=false; 
+boolean program_stop=false; 
+
 
 /*
 	Arduino variables declaration
@@ -137,40 +154,41 @@ void setup()
 {
 
 	Serial.begin(9600);
+	Serial3.begin(9600); // Used to send communication data from board 1 to board 2
 
 	// Arduino pinmodes set up
 	pinMode(A0,INPUT); // Pressure sensor
 	pinMode(inPin_Presa_KraenIzklGoren,INPUT_PULLUP);
 	pinMode(inPin_Presa_KraenIzklDolen,INPUT_PULLUP);
 	pinMode(inPin_Presa_AvariaGlavenMotor,INPUT);
-        pinMode(inPin_Presa_AvariaOhladitel, INPUT);
-        
-        pinMode(outPin_Presa_StartMotor, OUTPUT);
+	pinMode(inPin_Presa_AvariaOhladitel, INPUT);
+
+	pinMode(outPin_Presa_StartMotor, OUTPUT);
 	pinMode(outPin_Presa_Nagore,OUTPUT);
 	pinMode(outPin_Presa_Nadolu,OUTPUT);
 	pinMode(outPin_Presa_Vakum,OUTPUT);
 	pinMode(outPin_Presa_Vazduh,OUTPUT);
-        
-        pinMode(inPin_IzhMan_KraenIzklNach,INPUT_PULLUP);
+
+	pinMode(inPin_IzhMan_KraenIzklNach,INPUT_PULLUP);
 	pinMode(inPin_IzhMan_KraenIzklKrai,INPUT_PULLUP);
 	pinMode(inPin_IzhMan_ReperNach,INPUT_PULLUP);
 	pinMode(inPin_IzhMan_ReperKrai,INPUT_PULLUP);
 	pinMode(inPin_IzhMan_GornoPolozhenie,INPUT_PULLUP);
 	pinMode(inPin_IzhMan_DolnoPolozhenie,INPUT_PULLUP);
-        pinMode(inPin_IzhMan_Ready,INPUT_PULLUP);
+	pinMode(inPin_IzhMan_Ready,INPUT_PULLUP);
 
 	pinMode(outPin_IzhManipulator_Gore,OUTPUT);
 	pinMode(outPin_IzhManipulator_Vakum,OUTPUT);
 	pinMode(outPin_IzhManipulator_VisokaSk,OUTPUT);
 	pinMode(outPin_IzhManipulator_NiskaSk,OUTPUT);
-pinMode(outPin_IzhManipulator_Dir, OUTPUT);
+	pinMode(outPin_IzhManipulator_Dir, OUTPUT);
 	pinMode(inPin_VhMan_KraenIzklNach,INPUT_PULLUP);
 	pinMode(inPin_VhMan_KraenIzklKrai,INPUT_PULLUP);
 	pinMode(inPin_VhMan_ReperNach,INPUT_PULLUP);
 	pinMode(inPin_VhMan_ReperKrai,INPUT_PULLUP);
 	pinMode(inPin_VhMan_GornoPolozhenie,INPUT_PULLUP);
 	pinMode(inPin_VhMan_DolnoPolozhenie,INPUT_PULLUP);
-        pinMode(inPin_VhMan_Ready,INPUT_PULLUP);
+	pinMode(inPin_VhMan_Ready,INPUT_PULLUP);
 
 	pinMode(outPin_VhManipulator_Gore,OUTPUT);
 	pinMode(outPin_VhManipulator_Vakum,OUTPUT);
@@ -183,27 +201,75 @@ pinMode(outPin_IzhManipulator_Dir, OUTPUT);
 	pinMode(pin_material_vzet,OUTPUT);
 	pinMode(pin_razmotalka_nozh_razreshenie, OUTPUT);
 	pinMode(pin_razmotalka_stoper, INPUT);
-        pinMode(pin_nozhica_cycle, INPUT);
-        pinMode(pin_starter, INPUT_PULLUP);
-        pinMode(pin_nozhica_razr, OUTPUT);
-	
-	
-	//pinMode(13,INPUT_PULLUP); // Used only in testing
-
-
-
+	pinMode(pin_nozhica_cycle, INPUT);
+	pinMode(pin_starter, INPUT_PULLUP);
+	pinMode(pin_nozhica_razr, OUTPUT);
 }
-void serialEvent() {
-  
+void serialEvent()
+/*
+	This function reads the input communication data from the software on the computer and assigns to commands. 
+	If there is an input byte, the function returns it back to the software, which then could verify the communication.
+	The byte values used to trigger a command are declared along with the other global declarations	
+*/
+ {
+	byte data; 
+	if(Serial.available()>0) 
+{
+	data = Serial.read();
+	Serial.println(data);
+	Serial3.println(data);
 }
+	// Commands written under
+	if(data==program_start_command)
+	{
+		program_start=true; 
+		program_stop=false; 
+	}
+	else if(data==program_stop_command)
+	{
+		program_start=false; 
+		program_stop=true; 
+		initial=false; 
+	}
+	else if(data==program_pause_command)
+	{
+		Pause(data);
+	}
+}
+
+void Pause(int data)
+/*
+	This function pauses the running program and it is triggered by the software on the computer
+*/
+{
+	while(data==program_pause_command)
+	{
+		if(Serial.available()>0)
+		{
+			data=Serial.read();
+		}
+		
+		digitalWrite(outPin_VhManipulator_VisokaSk, LOW);
+        digitalWrite(outPin_VhManipulator_NiskaSk, LOW);
+        digitalWrite(outPin_IzhManipulator_VisokaSk, LOW);
+        digitalWrite(outPin_IzhManipulator_NiskaSk, LOW);
+		digitalWrite(outPin_Presa_Nadolu, LOW);
+		digitalWrite(outPin_Presa_Nagore, LOW);
+        digitalWrite(outPin_Presa_StopGC, LOW);
+	}
+}
+
 void Stop()
+/*
+	This function stops everything from running on the machine
+*/
 {
         digitalWrite(outPin_VhManipulator_VisokaSk, LOW);
         digitalWrite(outPin_VhManipulator_NiskaSk, LOW);
         digitalWrite(outPin_IzhManipulator_VisokaSk, LOW);
         digitalWrite(outPin_IzhManipulator_NiskaSk, LOW);
-	digitalWrite(outPin_Presa_Nadolu, LOW);
-	digitalWrite(outPin_Presa_Nagore, LOW);
+		digitalWrite(outPin_Presa_Nadolu, LOW);
+		digitalWrite(outPin_Presa_Nagore, LOW);
         digitalWrite(outPin_Presa_StopGC, LOW);
         digitalWrite(outPin_VhManipulator_Gore, LOW);
         digitalWrite(outPin_VhManipulator_Vakum, LOW);
@@ -243,8 +309,8 @@ void ReadSensors()
 	boolean digital_19[5];
 	boolean digital_20[5];
 	boolean digital_21[5];
-        boolean digital_22[5];
-       int analog_1[50];
+	boolean digital_22[5];
+	int analog_1[50];
 	unsigned long analog_sum=0;
 
 	for (int k=0; k<5;k++) // Take 5 readings for all inputs
@@ -263,16 +329,14 @@ void ReadSensors()
 		digital_12[k] = digitalRead(inPin_VhMan_DolnoPolozhenie);
 		digital_13[k] = digitalRead(pin_nozhica_cycle);
 		digital_14[k] = digitalRead(pin_razmotalka_stoper);
-                digital_15[k] = digitalRead(inPin_IzhMan_KraenIzklNach);
+        digital_15[k] = digitalRead(inPin_IzhMan_KraenIzklNach);
 		digital_16[k] = digitalRead(inPin_IzhMan_KraenIzklKrai);
 		digital_17[k] = digitalRead(inPin_IzhMan_ReperNach);
 		digital_18[k] = digitalRead(inPin_IzhMan_ReperKrai);
 		digital_19[k] = digitalRead(pin_material_vzet);
-                digital_20[k] = digitalRead(inPin_IzhMan_GornoPolozhenie);
+        digital_20[k] = digitalRead(inPin_IzhMan_GornoPolozhenie);
 		digital_21[k] = digitalRead(inPin_IzhMan_DolnoPolozhenie);
-                digital_22[k] = digitalRead(pin_starter);
-                               
-		
+        digital_22[k] = digitalRead(pin_starter);                              		
 		delayMicroseconds(10); // Delay betweeen readings
 	}
 	// Check if all 5 readings are the same. If they are the same, store the value. If not, go to the next value. 	
@@ -371,63 +435,67 @@ void ReadSensors()
 		analog_sum = analog_sum+analogRead(A0); // collect 50 readings from the analog sensor
 	}
 	in_Presa_Pressure = analog_sum/50; // take the mean value from it
-	
-	
-              
+            
   Values_Write(); // Write the values used to control the cycles of the machine
   Emergency_Read(); // Read all emergency lines
-
 }
 void Values_Write()
+/*
+	This function writes output values to the appropriate pins used mainly for communication. It deals with the operation logic of the output.
+	It is only working inside ReadSensors() and executes under every cycle of the program
+*/
 {
-  digitalWrite(pin_material_podaden, material_podaden); // write the logical values use as "communication" between the boards
+	digitalWrite(pin_material_podaden, material_podaden); // write the logical values use as "communication" between the boards
 	digitalWrite(pin_presa_udarila, presa_udarila); // This indicates that the press has pressed and sends the information to the other board
-      digitalWrite(pin_razmotalka_nozh_razreshenie,razmotalka_nozh_razreshenie);
-      digitalWrite(pin_material_vzet, IzhMan_cycle); // man_cycle to show that the cycle has finished. The other manipulator will wait until then
-      digitalWrite(pin_nozhica_razr, nozhica_razr);
+	digitalWrite(pin_razmotalka_nozh_razreshenie,razmotalka_nozh_razreshenie);
+	digitalWrite(pin_material_vzet, IzhMan_cycle); // man_cycle to show that the cycle has finished. The other manipulator will wait until then
+	digitalWrite(pin_nozhica_razr, nozhica_razr);
       
 	if(material_vzet == true && material_podaden==true && presa_udarila==true) // when the material was taken out of the press, restart the first two operations
 	{
 		material_podaden = false;
 		presa_udarila = false;
-                presa_razreshenie = false; 
-                nozhica_razr = false; 
+		presa_razreshenie = false; 
+		nozhica_razr = false; 
 	}
-      if (material_podaden == true && presa_udarila == false )
+    if (material_podaden == true && presa_udarila == false )
 	// if the input manipulator and the press have finished, restart the output manipulator
 	{
 		material_vzet = false;
 		IzhMan_cycle = false;
 	}
-      if(presa_udarila==true )
-      {
-        manipulator_cycle=true; 
-      }
+	if(presa_udarila==true )
+	{
+		manipulator_cycle=true; 
+	}
 }
 
 void Emergency_Read()
+/*
+	This function reads the emergency triggers and starts an alaram if there any
+*/
 {
-   if(in_VhMan_KraenIzklNach && in_VhMan_KraenIzklKrai)
-  {
-    Serial.write("24 Volts are out or sensors not working");
-    emergency_b1=true; 
-  }
-  else if(in_Presa_Pressure<150)
-  {
-    Serial.write("Pressure sensor is not working");
-    emergency_b1=true;
-  }
-  else if(in_IzhMan_Ready == false || in_VhMan_Ready )
-  {
-  }
-  
-  if(emergency_b1 || emergency_b2)
-  {
-    while(1)
-    {
-    Stop();
-    }
-  }
+	if(in_VhMan_KraenIzklNach && in_VhMan_KraenIzklKrai)
+	{
+		Serial.write("24 Volts are out or sensors not working");
+		emergency_b1=true; 
+	}
+	else if(in_Presa_Pressure<150)
+	{
+		Serial.write("Pressure sensor is not working");
+		emergency_b1=true;
+	}
+	else if(in_IzhMan_Ready == false || in_VhMan_Ready == false)
+	{
+		emergency_b1=true; 
+	}
+	if(emergency_b1 || emergency_b2)
+	{
+		while(1)
+		{
+			Stop();
+		}
+	}
 }
 void Press()
 /*
@@ -495,8 +563,6 @@ void Press()
 	}
 	//else
 	{
-		//Serial.println("Emergency stop at the the press");
-		//emergency = HIGH;
 	}
 
 }
@@ -516,8 +582,8 @@ void VhManipulator()
 			man_dir=false;
 		} 
 		digitalWrite(outPin_VhManipulator_Dir, man_dir);
-                digitalWrite(outPin_VhManipulator_VisokaSk, HIGH);
-                current_speed = man_speed_high;
+		digitalWrite(outPin_VhManipulator_VisokaSk, HIGH);
+		current_speed = man_speed_high;
 		ReadSensors(); 
 	}
 
@@ -527,98 +593,90 @@ void VhManipulator()
 		ReadSensors(); 
 		if(in_VhMan_KraenIzklNach==true && man_dir==false)
 		{
-		digitalWrite(outPin_VhManipulator_VisokaSk, LOW);
-                digitalWrite(outPin_VhManipulator_NiskaSk, HIGH);
-                man_cycle=true; // A manipulator cycle indicator, if man_cycle is true, it gives permission for material_podaden to take a true value and therefore start the next operation
+			digitalWrite(outPin_VhManipulator_VisokaSk, LOW);
+			digitalWrite(outPin_VhManipulator_NiskaSk, HIGH);
+			man_cycle=true; // A manipulator cycle indicator, if man_cycle is true, it gives permission for material_podaden to take a true value and therefore start the next operation
 		}
 		if(in_VhMan_KraenIzklKrai==true && man_dir==true)
 		{
-		digitalWrite(outPin_VhManipulator_VisokaSk, LOW);
-                digitalWrite(outPin_VhManipulator_NiskaSk, HIGH);
-
+			digitalWrite(outPin_VhManipulator_VisokaSk, LOW);
+			digitalWrite(outPin_VhManipulator_NiskaSk, HIGH);
 		}
-
 	}
 	if((in_VhMan_ReperNach==false || in_VhMan_ReperKrai==false))
 	{        
-                  if( (in_VhMan_ReperNach==false && man_dir==false ))
-                  {
-		digitalWrite(outPin_VhManipulator_VisokaSk, LOW);
-                digitalWrite(outPin_VhManipulator_NiskaSk, LOW);
-                Serial.println("stop 1");
-		current_speed=0; // Indicator of the current speed of the motor
-                Manipulator_Take();
-                  }
-                  
-                  if (in_VhMan_ReperKrai==false && man_dir==true)
-                  {
-                    digitalWrite(outPin_VhManipulator_VisokaSk, LOW);
-                digitalWrite(outPin_VhManipulator_NiskaSk, LOW);
-		current_speed=0; // Indicator of the current speed of the motor
-                Manipulator_Drop();
-                Serial.println("stop 2");
-                  }
-               // 
-                ReadSensors();
+		if( (in_VhMan_ReperNach==false && man_dir==false ))
+		{
+			digitalWrite(outPin_VhManipulator_VisokaSk, LOW);
+			digitalWrite(outPin_VhManipulator_NiskaSk, LOW);
+			Serial.println("stop 1");
+			current_speed=0; // Indicator of the current speed of the motor
+			Manipulator_Take();
+		}
+		if (in_VhMan_ReperKrai==false && man_dir==true)
+		{
+			digitalWrite(outPin_VhManipulator_VisokaSk, LOW);
+			digitalWrite(outPin_VhManipulator_NiskaSk, LOW);
+			current_speed=0; // Indicator of the current speed of the motor
+			Manipulator_Drop();
+			Serial.println("stop 2");
+		}
+	ReadSensors();
 	}
 
 }
 
 void Manipulator_Take()
 // Takes the element and gives permission to the roller to cut
-{    
-  
-    
-
-        if(in_VhMan_ReperNach==false)
+{      
+    if(in_VhMan_ReperNach==false)
 	{
         if(man_cycle )
 		{
 			material_podaden=true;
-                        presa_razreshenie = true; 
+            presa_razreshenie = true; 
 		}
-	  while(in_VhMan_DolnoPolozhenie==true )//|| digitalRead(27))
-	  {
-		ReadSensors();
-		digitalWrite(outPin_VhManipulator_Gore, HIGH);
-                digitalWrite(outPin_VhManipulator_Vakum, HIGH);
-	  }
+		while(in_VhMan_DolnoPolozhenie==true )//|| digitalRead(27))
+		{
+			ReadSensors();
+			digitalWrite(outPin_VhManipulator_Gore, HIGH);
+			digitalWrite(outPin_VhManipulator_Vakum, HIGH);
+		}
 	    
-	    razmotalka_nozh_razreshenie=true;
-            digitalWrite(pin_razmotalka_nozh_razreshenie, HIGH);
-            ReadSensors();
-	  while(razmotalka_stoper==false )//|| digitalRead(27));
-	  {
-              digitalWrite(pin_razmotalka_nozh_razreshenie, HIGH);
+		razmotalka_nozh_razreshenie=true;
+		digitalWrite(pin_razmotalka_nozh_razreshenie, HIGH);
 		ReadSensors();
-                razmotalka_nozh_razreshenie=true;
-                 if(presa_udarila == false && presa_razreshenie == true)
-	{
-		Press();
+		while(razmotalka_stoper==false )//|| digitalRead(27));
+		{
+			digitalWrite(pin_razmotalka_nozh_razreshenie, HIGH);
+			ReadSensors();
+			razmotalka_nozh_razreshenie=true;
+			if(presa_udarila == false && presa_razreshenie == true)
+				{
+				Press();
+				}
+			else
+			{
+				digitalWrite(outPin_Presa_Vazduh, LOW);
+				digitalWrite(outPin_Presa_Vakum, LOW);
+			}
+		}
+		razmotalka_nozh_razreshenie=false;
+		while(in_VhMan_GornoPolozhenie==true )//&& digitalRead(27))
+		{
+			ReadSensors();
+			digitalWrite(outPin_VhManipulator_Gore, LOW);
+			if(presa_udarila == false && presa_razreshenie == true)
+			{
+				Press();
+			}
+			else
+			{
+				digitalWrite(outPin_Presa_Vazduh, LOW);
+				digitalWrite(outPin_Presa_Vakum, LOW);
+			}
 	}
-               else
-              {
-          digitalWrite(outPin_Presa_Vazduh, LOW);
-          digitalWrite(outPin_Presa_Vakum, LOW);
-                }
-	  }
-      razmotalka_nozh_razreshenie=false;
-	  
-	  while(in_VhMan_GornoPolozhenie==true )//&& digitalRead(27))
-	  {
-		ReadSensors();
-		digitalWrite(outPin_VhManipulator_Gore, LOW);
-                 if(presa_udarila == false && presa_razreshenie == true)
-	{
-		Press();
-	}
- else
-        {
-          digitalWrite(outPin_Presa_Vazduh, LOW);
-          digitalWrite(outPin_Presa_Vakum, LOW);
-        }
-	  }
-          razmotalka_nozh_razreshenie=false;
+		razmotalka_nozh_razreshenie=false;
 	}
       
 
@@ -626,24 +684,21 @@ void Manipulator_Take()
 
 void Manipulator_Drop()
 {          
-
 	if(in_VhMan_ReperKrai==false)
+	{
+		while(in_VhMan_DolnoPolozhenie==true && (starter || program_start))
 		{
-		  while(in_VhMan_DolnoPolozhenie==true && starter)
-		  {
 			ReadSensors();
 			digitalWrite(outPin_VhManipulator_Gore, HIGH);
-		  }
-		  digitalWrite(outPin_VhManipulator_Vakum, LOW);
-		  while(in_VhMan_GornoPolozhenie==true && starter)
-		  {
+		}
+		digitalWrite(outPin_VhManipulator_Vakum, LOW);
+		while(in_VhMan_GornoPolozhenie==true && (starter || program_start))
+		{
 			ReadSensors();
 			digitalWrite(outPin_VhManipulator_Gore, LOW);
-
-		  }
 		}
-nozhica_razr = true; 
-   
+	}
+	nozhica_razr = true;   
 }
 
 void IzhManipulator()
@@ -651,168 +706,141 @@ void IzhManipulator()
 	This function operates the input manipulator of the system
 */
 {
-	
+
 	if( ( in_IzhMan_ReperNach && IzhCurrent_speed == 0) ||(in_IzhMan_ReperKrai && IzhCurrent_speed == 0))
 	{
-
-               if(in_IzhMan_ReperNach==true)
-                {
-                  IzhMan_dir=true;
-                }
-                if(in_IzhMan_ReperKrai==true)
-                 {
-                  IzhMan_dir=false;
-                }
-
-		digitalWrite(outPin_IzhManipulator_Dir, IzhMan_dir);
-         if(presa_udarila)
-          {
-		digitalWrite(outPin_IzhManipulator_VisokaSk, HIGH); 
-                IzhCurrent_speed = man_speed_high;
-          }
-                ReadSensors();
-
-		if (IzhMan_dir == false) // if the manipulator is moving out, this could start the input manipulator.
+		if(in_IzhMan_ReperNach==true)
 		{
-			material_vzet = true;
-                        digitalWrite(pin_material_vzet, IzhMan_cycle);
+			IzhMan_dir=true;
 		}
-
-
- 
+		if(in_IzhMan_ReperKrai==true)
+		{
+			IzhMan_dir=false;
+		}
+		digitalWrite(outPin_IzhManipulator_Dir, IzhMan_dir);
+	if(presa_udarila)
+	{
+		digitalWrite(outPin_IzhManipulator_VisokaSk, HIGH); 
+		IzhCurrent_speed = man_speed_high;
 	}
-	
+	ReadSensors();
+	if (IzhMan_dir == false) // if the manipulator is moving out, this could start the input manipulator.
+	{
+		material_vzet = true;
+		digitalWrite(pin_material_vzet, IzhMan_cycle);
+	}
+}
+
 	if((in_IzhMan_KraenIzklNach==true || in_IzhMan_KraenIzklKrai==true) &&   IzhCurrent_speed==man_speed_high )
 	// When an end switch is HIGH and the speed is HIGH, decelerate the motor
-	{        ReadSensors();
-                  
-	         if(in_IzhMan_KraenIzklNach==true && IzhMan_dir==false)
-                {
-		  digitalWrite(outPin_IzhManipulator_VisokaSk, LOW);
-                  digitalWrite(outPin_IzhManipulator_NiskaSk, HIGH);
-                  IzhCurrent_speed = man_speed_low;
-                }
-                if(in_IzhMan_KraenIzklKrai==true  && IzhMan_dir==true)
-                {
-		  digitalWrite(outPin_IzhManipulator_VisokaSk, LOW);
-                  digitalWrite(outPin_IzhManipulator_NiskaSk, HIGH);
-                  IzhCurrent_speed = man_speed_low;
-                                        
-                }  
-               if(in_IzhMan_KraenIzklKrai==true && IzhMan_dir==false)
-               
-              {
-              digitalWrite(pin_material_vzet, HIGH);
-              ReadSensors();
-          
-              }  
+	{       
+		ReadSensors();
+		if(in_IzhMan_KraenIzklNach==true && IzhMan_dir==false)
+		{
+			digitalWrite(outPin_IzhManipulator_VisokaSk, LOW);
+			digitalWrite(outPin_IzhManipulator_NiskaSk, HIGH);
+			IzhCurrent_speed = man_speed_low;
+		}
+		if(in_IzhMan_KraenIzklKrai==true  && IzhMan_dir==true)
+		{
+			digitalWrite(outPin_IzhManipulator_VisokaSk, LOW);
+			digitalWrite(outPin_IzhManipulator_NiskaSk, HIGH);
+			IzhCurrent_speed = man_speed_low;
+		}  
+		if(in_IzhMan_KraenIzklKrai==true && IzhMan_dir==false)
+			{
+			digitalWrite(pin_material_vzet, HIGH);
+			ReadSensors();
+			}  
 	}
 	if((in_IzhMan_ReperNach==true || in_IzhMan_ReperKrai==true))
 	{
-            if(in_IzhMan_ReperNach==true && IzhMan_dir==false)
-            {
-              digitalWrite(outPin_IzhManipulator_VisokaSk, LOW);
-                  digitalWrite(outPin_IzhManipulator_NiskaSk, LOW);
-                  IzhCurrent_speed=0;
-                  IzhManipulator_Drop();
-            }
-            if(in_IzhMan_ReperKrai==true && IzhMan_dir==true)
-            {
-              digitalWrite(outPin_IzhManipulator_VisokaSk, LOW);
-                  digitalWrite(outPin_IzhManipulator_NiskaSk, LOW);
-                  IzhCurrent_speed=0;
-                  IzhManipulator_Take();
-            }
-		
+		if(in_IzhMan_ReperNach==true && IzhMan_dir==false)
+		{
+			digitalWrite(outPin_IzhManipulator_VisokaSk, LOW);
+			digitalWrite(outPin_IzhManipulator_NiskaSk, LOW);
+			IzhCurrent_speed=0;
+			IzhManipulator_Drop();
+		}
+		if(in_IzhMan_ReperKrai==true && IzhMan_dir==true)
+		{
+			digitalWrite(outPin_IzhManipulator_VisokaSk, LOW);
+			digitalWrite(outPin_IzhManipulator_NiskaSk, LOW);
+			IzhCurrent_speed=0;
+			IzhManipulator_Take();
+		}
 		if(material_vzet == true && presa_udarila==true) // if the element was taken and the manipulatorstoped, this is a cycle
 		{
 			IzhMan_cycle = true; // when the work is added, another logic should be added too
 		} 
-		//delay(1000); // This is where work will happen - to delete
-                ReadSensors();
-                if (in_IzhMan_ReperNach==true)
-                {
-                manipulator_cycle=false;
-                }
+		ReadSensors();
+		if (in_IzhMan_ReperNach==true)
+		{
+			manipulator_cycle=false;
+		}
 	}
-
 }
 void IzhManipulator_Take()
 // Takes the element and gives permission to the roller to cut
 { 
 	if(in_IzhMan_ReperKrai==true)
 	{
-	  while(in_IzhMan_DolnoPolozhenie==true&& starter)
-	  {
-                ReadSensors();
-		digitalWrite(outPin_IzhManipulator_Gore, HIGH);
-                digitalWrite(outPin_IzhManipulator_Vakum, HIGH);
-	  }
-	  
-	  while(in_IzhMan_GornoPolozhenie==true && starter)
-	  {
-                ReadSensors();
-		digitalWrite(outPin_IzhManipulator_Gore, LOW);
-	  }
+		while(in_IzhMan_DolnoPolozhenie==true&& (starter || program_start))
+		{
+			ReadSensors();
+			digitalWrite(outPin_IzhManipulator_Gore, HIGH);
+			digitalWrite(outPin_IzhManipulator_Vakum, HIGH);
+		}
+		while(in_IzhMan_GornoPolozhenie==true && (starter || program_start))
+		{
+			ReadSensors();
+			digitalWrite(outPin_IzhManipulator_Gore, LOW);
+		}
 	}
 }
-
 void IzhManipulator_Drop()
 {      
 	if(in_IzhMan_ReperNach==true)
+	{
+		while(in_IzhMan_DolnoPolozhenie==true && (starter || program_start))
 		{
-		  while(in_IzhMan_DolnoPolozhenie==true && starter)
-		  {
 			ReadSensors();
 			digitalWrite(outPin_IzhManipulator_Gore, HIGH);
-                        VhManipulator();
-		  }
-		  digitalWrite(outPin_IzhManipulator_Vakum, LOW);
-		  while(in_IzhMan_GornoPolozhenie==true && starter)
-		  {
-			ReadSensors();
-                        VhManipulator();
-			digitalWrite(outPin_IzhManipulator_Gore, LOW);
-		  }
+			VhManipulator();
 		}
+		digitalWrite(outPin_IzhManipulator_Vakum, LOW);
+		while(in_IzhMan_GornoPolozhenie==true && (starter || program_start))
+		{
+			ReadSensors();
+			VhManipulator();
+			digitalWrite(outPin_IzhManipulator_Gore, LOW);
+		}
+	}
 }
-
-
-
-
-void ReadEmergency()
-/*
-	This function will block the operation of the production line while
-	an emergency sensors is activated. The program reads all emergency sensors.
-*/
-{	
-
-}
-
 void Initialize()
 /*
 	This function initialized the machine
 */
 {
-  
+
 	Serial.println("Initialize");
-if(in_VhMan_DolnoPolozhenie==false || in_IzhMan_DolnoPolozhenie==false)
-{
-  Serial.println("Vazduh izkl");
-  emergency_b1=true;
-  ReadSensors();
-}
+	if(in_VhMan_DolnoPolozhenie==false || in_IzhMan_DolnoPolozhenie==false) // Initial Emergency check if the Air is ON
+	{
+		emergency_b1=true;
+		ReadSensors();
+	}
+	// Bring the input manipulator to start position
 	digitalWrite(outPin_VhManipulator_Dir,LOW);
 	digitalWrite(outPin_VhManipulator_NiskaSk, HIGH);
 	while(in_VhMan_ReperNach == true && starter)
 	{
 		ReadSensors();
-               Serial.println(in_VhMan_ReperNach);
+		Serial.println(in_VhMan_ReperNach);
 	}
-        Serial.println(in_VhMan_ReperNach);
+	Serial.println(in_VhMan_ReperNach);
 	digitalWrite(outPin_VhManipulator_NiskaSk, LOW);
-        current_speed=0;
-        
+	current_speed=0;
+	// Bring the output manipulator to start position
 	digitalWrite(outPin_IzhManipulator_Dir,LOW);
 	digitalWrite(outPin_IzhManipulator_NiskaSk, HIGH);
 	while(in_IzhMan_ReperNach == false && starter)
@@ -820,21 +848,20 @@ if(in_VhMan_DolnoPolozhenie==false || in_IzhMan_DolnoPolozhenie==false)
 		ReadSensors();
 	}
 	digitalWrite(outPin_IzhManipulator_NiskaSk, LOW);
-        IzhCurrent_speed=0;
-	///*
+	IzhCurrent_speed=0;
+	// Bring the press up
 	while(in_Presa_KraenIzklGoren == false)
 	{
 		ReadSensors();
 		digitalWrite(outPin_Presa_Nagore, HIGH);
 		digitalWrite(outPin_Presa_Nadolu, LOW);
 	}
-		digitalWrite(outPin_Presa_Nagore, LOW);
-		digitalWrite(outPin_Presa_Nadolu, LOW);
-		presa_nadolu = true;
-		presa_nagore = false;
-
+	digitalWrite(outPin_Presa_Nagore, LOW);
+	digitalWrite(outPin_Presa_Nadolu, LOW);
+	presa_nadolu = true;
+	presa_nagore = false;
 	initial=true;
-Serial.println("Initialize FINISH");
+	Serial.println("Initialize FINISH");
 }
 
 void Operation()
@@ -844,71 +871,41 @@ boolean material_podaden = false, presa_udarila = false, material_vzet = false;
 */
 {
 	ReadSensors();
-	if(initial==false)
+	if(initial==false) // If the machine is not initialized, initialize
 	{
-	  Initialize();
+		Initialize();
 	}
-	if(material_podaden == false && presa_udarila == false && in_Presa_KraenIzklGoren) // ! Add material_vzet to null the previous 2 values
+	if(material_podaden == false && presa_udarila == false && in_Presa_KraenIzklGoren) // When the input manipulator should start to operate
 	{
 		VhManipulator();
-
 	}
-        if(manipulator_cycle=true && in_Presa_KraenIzklGoren )
-        {
-          IzhManipulator();
-        }
-	 if(presa_udarila == false && presa_razreshenie == true && in_VhMan_ReperNach==false && in_IzhMan_ReperNach)
+	if(manipulator_cycle=true && in_Presa_KraenIzklGoren )  // When the output manipulator should start to operate
+	{
+		IzhManipulator();
+	}
+	if(presa_udarila == false && presa_razreshenie == true && in_VhMan_ReperNach==false && in_IzhMan_ReperNach) // When the press should start to operate
 	{
 		Press(); 
-                Serial.println("Press");
 	}
-        else
-        {
-          digitalWrite(outPin_Presa_Vazduh, LOW);
-          digitalWrite(outPin_Presa_Vakum, LOW);
-        }
-
+	else
+	{
+		digitalWrite(outPin_Presa_Vazduh, LOW);
+		digitalWrite(outPin_Presa_Vakum, LOW);
+	}
 }
-
-void Press_test()
-{
-ReadSensors(); 
-if(digitalRead(27)==HIGH)
-{
-  Press();
-  if(analogRead(in_Presa_Pressure)>450)
-  {
-  Serial.println(in_Presa_Pressure);
-  }
-}
-else
-{
-  	digitalWrite(outPin_Presa_Nadolu, LOW);
-	digitalWrite(outPin_Presa_Nagore, LOW);
-}
-}
-
 
 void loop()
 {
 	
 ReadSensors();
-
-if(starter)
+if(starter || program_start)
 {
- Operation();
+	Operation();
 }
-else
+else if(starter==false && program_stop)
 {
-        
 	Stop();
-        ReadSensors();
+	ReadSensors();
 	delay(1000);
-
-
 }
-
-
-
-
 }
