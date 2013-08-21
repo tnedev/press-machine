@@ -71,6 +71,7 @@ byte pin_material_vzet = 19;
 byte pin_razmotalka_stoper = 17;
 byte pin_nozhica_cycle = 16; 
 byte pin_razmotalka_nozh_razreshenie=14;
+byte pin_nozhica_razr = 15; 
 
 byte pin_starter = 13; 
 
@@ -102,6 +103,9 @@ boolean manipulator_cycle = false;
 boolean nozhica_cycle=false; 
 boolean IzhMan_dir=false; 
 boolean starter; 
+
+boolean emergency_b1=false, emergency_b2=false; // emergency in board 1 or 2
+
 /*
 	Arduino variables declaration
 	names formation - "in"/"out" + Function_name + name
@@ -128,7 +132,7 @@ boolean in_IzhMan_ReperKrai = false;
 boolean in_IzhMan_GornoPolozhenie = false;
 boolean in_IzhMan_DolnoPolozhenie = false;
 boolean in_IzhMan_Ready = true; 
-
+boolean nozhica_razr = false; 
 void setup()
 {
 
@@ -181,6 +185,7 @@ pinMode(outPin_IzhManipulator_Dir, OUTPUT);
 	pinMode(pin_razmotalka_stoper, INPUT);
         pinMode(pin_nozhica_cycle, INPUT);
         pinMode(pin_starter, INPUT_PULLUP);
+        pinMode(pin_nozhica_razr, OUTPUT);
 	
 	
 	//pinMode(13,INPUT_PULLUP); // Used only in testing
@@ -188,7 +193,23 @@ pinMode(outPin_IzhManipulator_Dir, OUTPUT);
 
 
 }
-
+void serialEvent() {
+  
+}
+void Stop()
+{
+        digitalWrite(outPin_VhManipulator_VisokaSk, LOW);
+        digitalWrite(outPin_VhManipulator_NiskaSk, LOW);
+        digitalWrite(outPin_IzhManipulator_VisokaSk, LOW);
+        digitalWrite(outPin_IzhManipulator_NiskaSk, LOW);
+	digitalWrite(outPin_Presa_Nadolu, LOW);
+	digitalWrite(outPin_Presa_Nagore, LOW);
+        digitalWrite(outPin_Presa_StopGC, LOW);
+        digitalWrite(outPin_VhManipulator_Gore, LOW);
+        digitalWrite(outPin_VhManipulator_Vakum, LOW);
+        digitalWrite(outPin_IzhManipulator_Gore, LOW);
+        digitalWrite(outPin_IzhManipulator_Vakum, LOW);
+}
 void ReadSensors()
 /*
 	This function reads all the sensors the funcions on this board. 
@@ -351,16 +372,26 @@ void ReadSensors()
 	}
 	in_Presa_Pressure = analog_sum/50; // take the mean value from it
 	
-	digitalWrite(pin_material_podaden, material_podaden); // write the logical values use as "communication" between the boards
+	
+              
+  Values_Write(); // Write the values used to control the cycles of the machine
+  Emergency_Read(); // Read all emergency lines
+
+}
+void Values_Write()
+{
+  digitalWrite(pin_material_podaden, material_podaden); // write the logical values use as "communication" between the boards
 	digitalWrite(pin_presa_udarila, presa_udarila); // This indicates that the press has pressed and sends the information to the other board
       digitalWrite(pin_razmotalka_nozh_razreshenie,razmotalka_nozh_razreshenie);
       digitalWrite(pin_material_vzet, IzhMan_cycle); // man_cycle to show that the cycle has finished. The other manipulator will wait until then
+      digitalWrite(pin_nozhica_razr, nozhica_razr);
       
 	if(material_vzet == true && material_podaden==true && presa_udarila==true) // when the material was taken out of the press, restart the first two operations
 	{
 		material_podaden = false;
 		presa_udarila = false;
                 presa_razreshenie = false; 
+                nozhica_razr = false; 
 	}
       if (material_podaden == true && presa_udarila == false )
 	// if the input manipulator and the press have finished, restart the output manipulator
@@ -372,22 +403,32 @@ void ReadSensors()
       {
         manipulator_cycle=true; 
       }
-              
-  if(in_VhMan_KraenIzklNach && in_VhMan_KraenIzklKrai)
-  {
-    Serial.write("24 Volts are out or sensors not working");
-    while(1)
-    {
-	digitalWrite(outPin_Presa_Nadolu, LOW);
-	digitalWrite(outPin_Presa_Nagore, LOW);
-        digitalWrite(outPin_VhManipulator_Gore, LOW);
-        digitalWrite(outPin_VhManipulator_Vakum, LOW);
-    }
-  }
-
-
 }
 
+void Emergency_Read()
+{
+   if(in_VhMan_KraenIzklNach && in_VhMan_KraenIzklKrai)
+  {
+    Serial.write("24 Volts are out or sensors not working");
+    emergency_b1=true; 
+  }
+  else if(in_Presa_Pressure<150)
+  {
+    Serial.write("Pressure sensor is not working");
+    emergency_b1=true;
+  }
+  else if(in_IzhMan_Ready == false || in_VhMan_Ready )
+  {
+  }
+  
+  if(emergency_b1 || emergency_b2)
+  {
+    while(1)
+    {
+    Stop();
+    }
+  }
+}
 void Press()
 /*
 	This function operates the press module on the production line
@@ -522,39 +563,7 @@ void VhManipulator()
 	}
 
 }
-void Manipulator_Nozhica()
-// Takes the element and gives permission to the roller to cut
-{    
-  /*
-  
-    
 
-        if(in_VhMan_ReperNach==false)
-	{
-        digitalWrite(outPin_Nozhica_Vakum, LOW); // stop the vacum of the cutters while going up
-        digitalWrite(outPin_Nozhica_MasaGore, HIGH); // push the platform up
-	  while(in_VhMan_DolnoPolozhenie==true )//|| digitalRead(27))
-	  {
-		ReadSensors();
-		digitalWrite(outPin_VhManipulator_Gore, HIGH);
-                digitalWrite(outPin_VhManipulator_Vakum, HIGH);
-                Serial.println("1 While");
-	  }
-	    
-	  delay(1000);
-	  while(in_VhMan_GornoPolozhenie==true )//&& digitalRead(27))
-	  {
-              Serial.println("3 While");
-		ReadSensors();
-		digitalWrite(outPin_VhManipulator_Gore, LOW);
-                //razmotalka_nozh_razreshenie=false;
-                 
-	  }
-           digitalWrite(outPin_Nozhica_MasaGore, LOW); // push the platform down
-	}
-      
-*/
-}
 void Manipulator_Take()
 // Takes the element and gives permission to the roller to cut
 {    
@@ -576,9 +585,11 @@ void Manipulator_Take()
 	  }
 	    
 	    razmotalka_nozh_razreshenie=true;
+            digitalWrite(pin_razmotalka_nozh_razreshenie, HIGH);
             ReadSensors();
 	  while(razmotalka_stoper==false )//|| digitalRead(27));
 	  {
+              digitalWrite(pin_razmotalka_nozh_razreshenie, HIGH);
 		ReadSensors();
                 razmotalka_nozh_razreshenie=true;
                  if(presa_udarila == false && presa_razreshenie == true)
@@ -628,9 +639,10 @@ void Manipulator_Drop()
 		  {
 			ReadSensors();
 			digitalWrite(outPin_VhManipulator_Gore, LOW);
+
 		  }
 		}
-
+nozhica_razr = true; 
    
 }
 
@@ -784,6 +796,12 @@ void Initialize()
 {
   
 	Serial.println("Initialize");
+if(in_VhMan_DolnoPolozhenie==false || in_IzhMan_DolnoPolozhenie==false)
+{
+  Serial.println("Vazduh izkl");
+  emergency_b1=true;
+  ReadSensors();
+}
 	digitalWrite(outPin_VhManipulator_Dir,LOW);
 	digitalWrite(outPin_VhManipulator_NiskaSk, HIGH);
 	while(in_VhMan_ReperNach == true && starter)
@@ -874,66 +892,16 @@ else
 void loop()
 {
 	
-//Press_test(); 
 ReadSensors();
- //digitalWrite(outPin_IzhManipulator_Dir,HIGH);
-
-// Test the sensors
-/*
-Serial.print("Vh manipulator: ");
-Serial.print(digitalRead(inPin_VhMan_ReperNach));
-Serial.print(digitalRead(inPin_VhMan_KraenIzklNach));
-Serial.print(digitalRead(inPin_VhMan_KraenIzklKrai));
-Serial.print(digitalRead(inPin_VhMan_ReperKrai));
-Serial.print(" Gore/Dolu: ");
-Serial.print(digitalRead(inPin_VhMan_GornoPolozhenie));
-Serial.println(digitalRead(inPin_VhMan_DolnoPolozhenie));
-Serial.print("Izh manipulator: ");
-Serial.print(digitalRead(inPin_IzhMan_ReperNach));
-Serial.print(digitalRead(inPin_IzhMan_KraenIzklNach));
-Serial.print(digitalRead(inPin_IzhMan_KraenIzklKrai));
-Serial.print(digitalRead(inPin_IzhMan_ReperKrai));
-Serial.print(" Gore/Dolu: ");
-Serial.print(digitalRead(inPin_IzhMan_GornoPolozhenie));
-Serial.println(digitalRead(inPin_IzhMan_DolnoPolozhenie));
-Serial.print("Presa G/D");
-Serial.print(digitalRead(inPin_Presa_KraenIzklGoren));
-Serial.println(digitalRead(inPin_Presa_KraenIzklDolen));
-Serial.println(analogRead(A0));
-
-
-delay(2000);
- digitalWrite(outPin_IzhManipulator_Dir,HIGH);
-	digitalWrite(outPin_IzhManipulator_VisokaSk, HIGH);
-*/
-
-// Test vh manipulator
-
 
 if(starter)
 {
  Operation();
-   //   digitalWrite(outPin_IzhManipulator_Dir,LOW);
-	//digitalWrite(outPin_IzhManipulator_NiskaSk, HIGH);
-       //digitalWrite(outPin_IzhManipulator_NiskaSk, HIGH);
-       // digitalWrite(outPin_IzhManipulator_Dir,LOW);
-        //Serial.println("Motors run");
 }
 else
 {
         
-	digitalWrite(outPin_VhManipulator_VisokaSk, LOW);
-        digitalWrite(outPin_VhManipulator_NiskaSk, LOW);
-        digitalWrite(outPin_IzhManipulator_VisokaSk, LOW);
-        digitalWrite(outPin_IzhManipulator_NiskaSk, LOW);
-	digitalWrite(outPin_Presa_Nadolu, LOW);
-	digitalWrite(outPin_Presa_Nagore, LOW);
-        digitalWrite(outPin_Presa_StopGC, LOW);
-        digitalWrite(outPin_VhManipulator_Gore, LOW);
-        digitalWrite(outPin_VhManipulator_Vakum, LOW);
-        digitalWrite(outPin_IzhManipulator_Gore, LOW);
-        digitalWrite(outPin_IzhManipulator_Vakum, LOW);
-	Serial.println("STOPED");
+	Stop();
         ReadSensors();
 	delay(1000);
 
@@ -942,40 +910,5 @@ else
 
 
 
-
-
-  /*
-	if(emergency==LOW) // Operate the production line if there is no emergency
-	{ // Main loop function for normal operation
-	
-		if(initial=false)
-		{
-			Initialize();
-		}
-		ReadSensors();
-		if(in_Presa_KraenIzklGoren) // if the press is up
-		{
-			VhManipulator();
-		}
-		else
-		{
-			noTone(outPin_VhManipulator_PulsMotor);
-		}
-
-		if(in_VhMan_KraenIzklNach && in_VhMan_ReperNach)
-		{
-		}
-		
-	}
-	
-	else // There was an emegency, this should be fixed before the program continues
-	{
-		Serial.write("Please fix the emergency before proceeding");
-		while(emergency)
-		{
-			ReadEmergency();
-		}
-	}
-*/
 
 }
